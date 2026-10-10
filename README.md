@@ -1,29 +1,34 @@
-# IIM PhD Alumni Network
+# IIM PhD & FPM Alumni Network
 
-A specialized, high-trust digital network designed exclusively for PhD and Fellow Programme in Management (FPM) scholars and alumni of Indian Institutes of Management (IIMs). 
+A specialized, high-trust digital ecosystem designed exclusively for Fellow Programme in Management (FPM) scholars and PhD alumni of the Indian Institutes of Management (IIMs).
 
-## The Problem
-Most institutional alumni portals are built around the PGP (MBA) experience—focusing on corporate placements, startup fundraising, and batch reunions. A PhD scholar's trajectory is fundamentally different. Their career currency relies on citations, co-authorships, academic placements, and navigating rigorous peer reviews. This project shifts the focus from mass corporate networking to high-value academic collaboration.
+## The Core Problem
+Most institutional alumni portals are built around the PGP (MBA) experience—focusing heavily on corporate placements, startup fundraising, and generic batch reunions. 
 
-## Core Features & Phased Rollout
+A PhD scholar's trajectory is fundamentally different. Their career currency relies on:
+1. Research co-authorships and methodological collaborations.
+2. Navigating rigorous peer reviews (Revise & Resubmit cycles) at FT50 and ABS 4/4* journals.
+3. Academic placements at premier institutes (IIMs, IITs, or global universities).
+4. Networking at major global conferences (e.g., ECIS, ICIS, AOM, InCIS).
 
-### Phase 1: The "Low-Friction, High-Trust" Foundation
-Focuses on simple, asynchronous tools that solve immediate pain points without requiring complex institutional API integrations.
-*   **Gated Authentication:** Verified `.ac.in` / `.edu` emails or LinkedIn vetting.
-*   **The Global Conference Tracker:** A geo-tagged event board for coordinating meetups, sharing cabs, or splitting Airbnbs at major academic conferences (AOM, ICIS, etc.).
-*   **The "Shadow" Directory:** A searchable directory mapping alumni to current universities with an "Open to Chat" toggle, allowing early-stage scholars to privately inquire about department work culture and tenure realities.
+This project shifts the focus from mass corporate networking to high-value, closed-door academic collaboration.
 
-### Phase 2: The Academic Collaboration Engine
-Introduces features that directly impact a researcher's output.
-*   **Co-Authorship & Data-Sharing Board:** A forum where researchers list methodological strengths or proprietary datasets, and post "Looking for Collaborator" requests.
-*   **Revise & Resubmit (R&R) Vault:** A secure cloud repository of anonymized "Response to Reviewer" documents donated by successful alumni, providing templates for top-tier journals.
-*   **Pre-Submission Paper Swap:** A lightweight system to request quick, informal read-throughs from alumni who have published in target journals.
+## Core Modules Overview
 
-### Phase 3: Institutional Integration & Mentorship Scaling
-Operationalizes long-term career support.
-*   **Structured Mentorship Workflows:** Matching final-year scholars with junior faculty alumni for job market preparation.
-*   **Decentralized Network Nodes:** Empowering highly connected alumni in major academic clusters (e.g., North America, Europe) to organize local micro-events.
-*   **Granular Content Segmentation:** Pushing targeted opportunities (editorial board openings, grants) rather than generic campus news.
+### 1. The "Shadow" Academic Directory
+A searchable directory mapping alumni to their current universities. Crucially, it includes an "Open to Chat" toggle, allowing early-stage scholars to privately inquire about department work culture, teaching loads, and tenure realities before accepting placement offers.
 
-## Getting Started
-See the `GETTING_STARTED.md` file for technical requirements, architecture, and the roadmap for Phase 1.
+### 2. The Global Conference Tracker
+A geo-tagged event board for coordinating meetups at major academic conferences. It allows current scholars to split Airbnbs, share transit, or set up informal coffee chats with alumni already established in the global academic community.
+
+### 3. Co-Authorship & Data-Sharing Board
+A classifieds-style forum where researchers list their methodological strengths (e.g., fsQCA, Latent Dirichlet Allocation, advanced econometrics) or proprietary datasets, and post "Looking for Collaborator" requests to fill specific research gaps.
+
+### 4. Revise & Resubmit (R&R) Vault
+A highly secure, anonymized cloud repository where successful alumni donate their "Response to Reviewers" documents. This provides current scholars with invaluable structural templates for handling brutal peer reviews.
+
+## Technical Architecture (Phase 1)
+- **Frontend:** Next.js / React (Responsive, fast indexing)
+- **Backend:** Node.js (Express) or Python (FastAPI/Django)
+- **Database:** PostgreSQL (Ideal for structured user profiles and relational queries)
+- **Auth:** OAuth with custom domain validation (strictly `.ac.in` and `.edu`)
