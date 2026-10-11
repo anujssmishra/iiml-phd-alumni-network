@@ -74,7 +74,7 @@ export async function listPublicConferences(filters: ConferenceFilters = {}) {
   const orderBy: Prisma.ConferenceOrderByWithRelationInput =
     timeframe === "upcoming" ? { startDate: "asc" } : { startDate: "desc" };
 
-  const pageSize = 12;
+  const pageSize = 24;
   const total = await prisma.conference.count({ where });
   const page = Math.min(Number(rawPage), Math.max(1, Math.ceil(total / pageSize)));
 

@@ -112,46 +112,52 @@ export default async function ConferencesPage({
           No conferences found for this search or filter.
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {conferences.map((conf) => {
             const dateStr = formatDateRange(conf.startDate, conf.endDate, conf.timezone);
             const isCfpOpen = conf.cfpDeadline && new Date(conf.cfpDeadline) > new Date();
 
             return (
-              <article key={conf.id} className="flex flex-col justify-between rounded-xl border bg-white p-6 shadow-xs">
+              <Link
+                key={conf.id}
+                href={`/conferences/${conf.id}`}
+                className="group flex flex-col justify-between rounded-lg border border-slate-200 bg-white p-3 hover:border-blue-500 hover:shadow-xs transition-all"
+              >
                 <div>
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-1.5 mb-1.5">
                     {conf.acronym && (
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-800">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-800 tracking-tight">
                         {conf.acronym}
                       </span>
                     )}
                     {isCfpOpen && (
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                      <span className="rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
                         CFP Open
                       </span>
                     )}
                   </div>
 
-                  <h2 className="my-3 text-xl font-semibold">
-                    <Link className="text-blue-800 hover:underline" href={`/conferences/${conf.id}`}>
-                      {conf.name}
-                    </Link>
+                  <h2 className="text-xs font-semibold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-snug">
+                    {conf.name}
                   </h2>
 
-                  <p className="text-sm font-medium text-slate-700">{dateStr}</p>
-                  <p className="text-sm text-slate-500 mt-1">{conf.location}</p>
-
-                  {conf.description && <p className="mt-3 text-sm text-slate-600 line-clamp-3">{conf.description}</p>}
+                  <div className="mt-2 space-y-1 text-[11px] text-slate-600">
+                    <p className="font-medium text-slate-700 truncate" title={dateStr}>
+                      📅 {dateStr}
+                    </p>
+                    <p className="text-slate-500 truncate" title={conf.location}>
+                      📍 {conf.location}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t text-xs text-slate-500 flex justify-between items-center">
-                  <span>Timezone: {conf.timezone}</span>
-                  <Link href={`/conferences/${conf.id}`} className="font-semibold text-blue-800 hover:underline">
-                    View details &rarr;
-                  </Link>
+                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{conf.timezone}</span>
+                  <span className="font-semibold text-blue-700 group-hover:translate-x-0.5 transition-transform">
+                    View &rarr;
+                  </span>
                 </div>
-              </article>
+              </Link>
             );
           })}
         </div>
