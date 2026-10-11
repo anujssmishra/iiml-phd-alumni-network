@@ -26,6 +26,13 @@ export const TIER1_CONFERENCE_SOURCES: Tier1Source[] = [
     domain: "Information Systems",
   },
   {
+    key: "ecis",
+    name: "European Conference on Information Systems",
+    acronym: "ECIS 2027",
+    url: "https://ecis2027.uni.lu",
+    domain: "Information Systems",
+  },
+  {
     key: "ama",
     name: "American Marketing Association Academic Conference",
     acronym: "AMA 2027",

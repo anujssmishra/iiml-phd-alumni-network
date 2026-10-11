@@ -89,6 +89,43 @@ async function main() {
     });
 
     await prisma.conference.upsert({
+      where: { id: "ecis-2027" },
+      update: {
+        name: "35th European Conference on Information Systems",
+        acronym: "ECIS 2027",
+        date: new Date("2027-05-24T00:00:00.000Z"),
+        startDate: new Date("2027-05-24T00:00:00.000Z"),
+        endDate: new Date("2027-05-26T00:00:00.000Z"),
+        timezone: "Europe/Luxembourg",
+        cfpDeadline: new Date("2026-11-20T23:59:00.000Z"),
+        location: "Luxembourg City, Luxembourg",
+        description: "The premier European conference for Information Systems academics and professionals, an official AIS Region 2 conference.",
+        url: "https://ecis2027.uni.lu",
+        sourceUrl: "https://ecis2027.uni.lu",
+        sourceCheckedAt: new Date("2026-10-11T00:00:00.000Z"),
+        publicationState: "published",
+        isDemo: true,
+      },
+      create: {
+        id: "ecis-2027",
+        name: "35th European Conference on Information Systems",
+        acronym: "ECIS 2027",
+        date: new Date("2027-05-24T00:00:00.000Z"),
+        startDate: new Date("2027-05-24T00:00:00.000Z"),
+        endDate: new Date("2027-05-26T00:00:00.000Z"),
+        timezone: "Europe/Luxembourg",
+        cfpDeadline: new Date("2026-11-20T23:59:00.000Z"),
+        location: "Luxembourg City, Luxembourg",
+        description: "The premier European conference for Information Systems academics and professionals, an official AIS Region 2 conference.",
+        url: "https://ecis2027.uni.lu",
+        sourceUrl: "https://ecis2027.uni.lu",
+        sourceCheckedAt: new Date("2026-10-11T00:00:00.000Z"),
+        publicationState: "published",
+        isDemo: true,
+      },
+    });
+
+    await prisma.conference.upsert({
       where: { id: "demo-research-symposium" },
       update: {
         name: "Demo Research Symposium — synthetic example",
