@@ -203,7 +203,7 @@ export default async function ConferencesPage({
           </div>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {conferences.map((conf) => {
             const dateStr = formatDateRange(conf.startDate, conf.endDate, conf.timezone);
             const isCfpOpen = conf.cfpDeadline && new Date(conf.cfpDeadline) > new Date();
@@ -213,51 +213,51 @@ export default async function ConferencesPage({
               <Link
                 key={conf.id}
                 href={`/conferences/${conf.id}`}
-                className="group relative flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+                className="group relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
               >
                 <div>
-                  {/* Top Header: Acronym & CFP Badge */}
-                  <div className="flex items-center justify-between gap-1.5 mb-2">
-                    <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-mono font-bold text-white tracking-tight shadow-2xs">
+                  {/* Top Header: Acronym & CFP / Domain Badge */}
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <span className="rounded-md bg-slate-900 px-2 py-0.5 text-xs font-mono font-bold text-white tracking-tight shadow-2xs">
                       {conf.acronym || "CONF"}
                     </span>
                     {isCfpOpen ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800 shrink-0">
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                         CFP Open
                       </span>
                     ) : (
-                      <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold truncate max-w-[130px] ${domain.badgeClass}`}>
+                      <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold shrink-0 ${domain.badgeClass}`}>
                         {domain.label}
                       </span>
                     )}
                   </div>
 
-                  {/* Conference Title */}
-                  <h2 className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-snug">
+                  {/* Conference Title - Fully Visible, No Truncation */}
+                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors leading-snug">
                     {conf.name}
-                  </h2>
+                  </h3>
 
                   {/* Details Strip */}
-                  <div className="mt-2.5 space-y-1.5 text-[11px]">
-                    <div className="flex items-center gap-1.5 font-medium text-slate-700 truncate" title={dateStr}>
+                  <div className="mt-3 space-y-1.5 text-xs">
+                    <div className="flex items-center gap-2 font-medium text-slate-700">
                       <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span className="truncate">{dateStr}</span>
+                      <span>{dateStr}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-slate-500 truncate" title={conf.location}>
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{conf.location}</span>
+                    <div className="flex items-start gap-2 text-slate-500">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                      <span>{conf.location}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Footer Strip */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <span className="text-[10px] text-slate-400 font-mono truncate max-w-[110px]" title={conf.timezone}>
+                <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-slate-400 font-mono" title={conf.timezone}>
                     {conf.timezone}
                   </span>
-                  <span className="inline-flex items-center gap-1 font-semibold text-blue-700 group-hover:translate-x-0.5 transition-transform text-[11px]">
-                    Details <ArrowRight className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1 font-semibold text-blue-700 group-hover:translate-x-0.5 transition-transform text-xs">
+                    View Details <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </Link>

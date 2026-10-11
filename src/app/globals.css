@@ -23,10 +23,12 @@ button:disabled { cursor: wait; opacity: .65; }
 input:disabled { cursor: not-allowed; }
 a, button, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid #287ab5; outline-offset: 4px; }
-h1, h2, h3 { font-weight: 700; line-height: 1.25; letter-spacing: -.025em; }
-h1 { font-size: clamp(2rem, 4vw, 2.8rem); }
-h2 { font-size: 1.5rem; }
-h3 { font-size: 1.15rem; }
+@layer base {
+  h1, h2, h3 { font-weight: 700; line-height: 1.25; letter-spacing: -.025em; }
+  h1 { font-size: clamp(2rem, 4vw, 2.8rem); }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.15rem; }
+}
 p { overflow-wrap: break-word; }
 
 .network-shell { width: min(1160px, calc(100% - 48px)); margin-inline: auto; }
