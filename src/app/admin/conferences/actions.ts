@@ -10,6 +10,13 @@ import {
   setPublicationState,
   reviewConferenceSuggestion,
 } from "@/lib/conference-service";
+import { fetchConferenceFromUrl } from "@/lib/conference-fetcher";
+import {
+  findExistingConferenceMatch,
+  computeConferenceDiff,
+  reconcileConferenceSync,
+  ReconcileAction,
+} from "@/lib/conference-sync";
 import { NetworkError } from "@/lib/validation";
 
 export async function createConferenceAction(form: FormData) {
@@ -127,7 +134,7 @@ export async function deleteConferenceAction(form: FormData) {
 export async function reviewSuggestionAction(form: FormData) {
   const userId = await getSessionUserId();
   const suggestionId = String(form.get("suggestionId") ?? "");
-  const decision = String(form.get("decision") ?? ""); // approve_published, approve_draft, reject
+  const decision = String(form.get("decision") ?? "");
 
   let error: string | null = null;
   try {
@@ -155,4 +162,53 @@ export async function reviewSuggestionAction(form: FormData) {
   revalidatePath("/conferences");
   revalidatePath("/admin/conferences");
   redirect(`/admin/conferences?${error ? "error=" + encodeURIComponent(error) : "reviewed=1"}`);
+}
+
+export async function quickFetchConferenceAction(urlInput: string) {
+  try {
+    const extracted = await fetchConferenceFromUrl(urlInput);
+    const match = await findExistingConferenceMatch(extracted);
+    const diff = match ? computeConferenceDiff(match.conference, extracted) : null;
+
+    return {
+      success: true,
+      extracted,
+      match: match ? { matchType: match.matchType, conference: match.conference } : null,
+      diff,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Failed to fetch conference from URL.",
+    };
+  }
+}
+
+export async function applyQuickFetchAction(form: FormData) {
+  const userId = await getSessionUserId();
+  const action = String(form.get("reconcileAction") ?? "create_draft") as ReconcileAction;
+  const targetConferenceId = form.get("targetConferenceId") ? String(form.get("targetConferenceId")) : undefined;
+
+  const rawExtracted = String(form.get("extractedPayload") ?? "");
+  let error: string | null = null;
+
+  try {
+    if (!rawExtracted) throw new NetworkError("Missing extracted conference payload.");
+    const payload = JSON.parse(rawExtracted);
+
+    const extracted = {
+      ...payload,
+      startDate: new Date(payload.startDate),
+      endDate: new Date(payload.endDate),
+      cfpDeadline: payload.cfpDeadline ? new Date(payload.cfpDeadline) : null,
+    };
+
+    await reconcileConferenceSync(userId, action, extracted, targetConferenceId);
+  } catch (e) {
+    error = e instanceof NetworkError ? e.message : "Failed to reconcile quick fetch.";
+  }
+
+  revalidatePath("/conferences");
+  revalidatePath("/admin/conferences");
+  redirect(`/admin/conferences?${error ? "error=" + encodeURIComponent(error) : "synced=1"}`);
 }

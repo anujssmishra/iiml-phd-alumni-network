@@ -12,6 +12,7 @@ import {
   deleteConferenceAction,
   reviewSuggestionAction,
 } from "./actions";
+import { QuickFetchTool } from "./quick-fetch-tool";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Curator Workspace | IIM PhD & FPM Network" };
@@ -25,6 +26,7 @@ export default async function CuratorConferencesPage({
     updated?: string;
     deleted?: string;
     reviewed?: string;
+    synced?: string;
   }>;
 }) {
   const userId = await getSessionUserId();
@@ -69,11 +71,14 @@ export default async function CuratorConferencesPage({
           {query.error.slice(0, 200)}
         </p>
       )}
-      {(query.created || query.updated || query.deleted || query.reviewed) && (
+      {(query.created || query.updated || query.deleted || query.reviewed || query.synced) && (
         <p role="status" className="rounded border border-green-300 bg-green-50 p-4 text-green-900">
           Action completed successfully.
         </p>
       )}
+
+      {/* Automated Ingestion Tool */}
+      <QuickFetchTool />
 
       {/* Section 1: Pending Member Suggestions */}
       <section className="rounded-xl border bg-white p-6 shadow-xs">
