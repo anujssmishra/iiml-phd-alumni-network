@@ -19,7 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <header className="site-header">
           <div className="network-shell header-inner">
