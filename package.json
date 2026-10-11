@@ -19,6 +19,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "sync:conferences": "tsx scripts/sync-conferences.ts",
+    "sync:auto-conferences": "tsx scripts/auto-sync-all-conferences.ts",
     "test": "node scripts/isolated-database.mjs test",
     "test:e2e": "node scripts/isolated-database.mjs browser",
     "check": "npm run db:generate && npm run lint && npm run typecheck && npm test && npm run build"
