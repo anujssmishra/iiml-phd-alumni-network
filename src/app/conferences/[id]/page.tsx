@@ -1,202 +1,191 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { MapPin, Calendar, ExternalLink, Users } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Suspense } from "react";
+import { getCurrentUser, getSessionUserId } from "@/lib/session";
+import { getRoster, getOwnAttendance, NetworkError, setAttendance } from "@/lib/member-service";
+import { getConferenceDetail } from "@/lib/conference-service";
 
-// We'll mock the session user ID for now since we haven't wired up the frontend NextAuth provider yet.
-const MOCK_USER_ID = "cm21jksd0000008l41234abcd"; 
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Conference details | IIM PhD & FPM Network" };
 
-async function toggleRsvp(conferenceId: string, formData: FormData) {
+async function rsvpAction(form: FormData) {
   "use server";
-  
-  const existingRsvp = await prisma.conferenceAttendee.findUnique({
-    where: {
-      userId_conferenceId: {
-        userId: MOCK_USER_ID,
-        conferenceId: conferenceId,
-      }
-    }
-  });
+  const id = String(form.get("conferenceId") ?? "");
+  const intent = String(form.get("intent") ?? "");
+  let error: string | null = null;
+  try {
+    if (!["attend", "cancel"].includes(intent)) throw new NetworkError("Invalid RSVP intent.");
+    await setAttendance(await getSessionUserId(), id, intent === "attend");
+  } catch (e) {
+    error = e instanceof NetworkError ? e.message : "Unable to save attendance. Please try again.";
+  }
+  revalidatePath("/conferences");
+  revalidatePath(`/conferences/${id}`);
+  redirect(`/conferences/${encodeURIComponent(id)}?${error ? "error=" + encodeURIComponent(error) : "saved=1"}`);
+}
 
-  if (existingRsvp) {
-    // Leave conference
-    await prisma.conferenceAttendee.delete({
-      where: { id: existingRsvp.id }
-    });
-  } else {
-    // Join conference
-    await prisma.user.upsert({
-      where: { id: MOCK_USER_ID },
-      update: {},
-      create: {
-        id: MOCK_USER_ID,
-        name: "Test Scholar",
-        email: "scholar@iiml.ac.in",
-        current_institution: "IIM Lucknow",
-      }
-    });
+function formatDateRange(start: Date, end: Date, timeZone = "UTC"): string {
+  const sDay = start.toLocaleDateString("en-IN", { timeZone, day: "numeric" });
+  const sMonth = start.toLocaleDateString("en-IN", { timeZone, month: "short" });
+  const sYear = start.toLocaleDateString("en-IN", { timeZone, year: "numeric" });
 
-    await prisma.conferenceAttendee.create({
-      data: {
-        userId: MOCK_USER_ID,
-        conferenceId: conferenceId,
-        status: "attending",
-      }
-    });
+  const eDay = end.toLocaleDateString("en-IN", { timeZone, day: "numeric" });
+  const eMonth = end.toLocaleDateString("en-IN", { timeZone, month: "short" });
+  const eYear = end.toLocaleDateString("en-IN", { timeZone, year: "numeric" });
+
+  if (sYear === eYear && sMonth === eMonth && sDay === eDay) {
+    return `${sDay} ${sMonth} ${sYear}`;
+  }
+  if (sYear === eYear && sMonth === eMonth) {
+    return `${sDay}–${eDay} ${sMonth} ${sYear}`;
+  }
+  if (sYear === eYear) {
+    return `${sDay} ${sMonth} – ${eDay} ${eMonth} ${sYear}`;
+  }
+  return `${sDay} ${sMonth} ${sYear} – ${eDay} ${eMonth} ${eYear}`;
+}
+
+export default async function ConferenceDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; saved?: string }>;
+}) {
+  const { id } = await params;
+  const query = await searchParams;
+  const user = await getCurrentUser();
+
+  let conference;
+  try {
+    conference = await getConferenceDetail(user?.id ?? null, id);
+  } catch (err) {
+    if (err instanceof NetworkError && err.status === 404) notFound();
+    throw err;
   }
 
-  revalidatePath(`/conferences/${conferenceId}`);
-}
+  const approved = user?.membershipStatus === "approved";
+  const roster = approved ? await getRoster(user.id, id) : [];
+  const attendance = approved ? await getOwnAttendance(user.id, id) : null;
 
-async function ConferenceDetail({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const conference = await prisma.conference.findUnique({
-    where: { id },
-    include: {
-      attendees: {
-        include: { user: true },
-        orderBy: { createdAt: 'asc' }
-      }
-    }
-  });
+  const primaryUrl = conference.url || conference.sourceUrl;
+  const safeUrl = primaryUrl && /^https?:\/\//i.test(primaryUrl) ? primaryUrl : null;
+  const dateStr = formatDateRange(conference.startDate, conference.endDate, conference.timezone);
 
-  if (!conference) notFound();
-
-  const isAttending = conference.attendees.some(a => a.userId === MOCK_USER_ID);
-  const toggleRsvpAction = toggleRsvp.bind(null, conference.id);
+  const isCfpOpen = conference.cfpDeadline && new Date(conference.cfpDeadline) > new Date();
 
   return (
-    <div className="bg-white min-h-screen pb-20">
-      {/* Hero Header */}
-      <div className="bg-slate-900 text-white pt-20 pb-28 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
-        <div className="max-w-5xl mx-auto px-6 relative z-10">
-          <Link href="/conferences" className="inline-flex items-center text-slate-400 hover:text-white transition-colors mb-8 text-sm font-medium">
-            &larr; Back to all conferences
-          </Link>
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-6 leading-tight">{conference.name}</h1>
-              <div className="flex flex-wrap gap-4 text-slate-300">
-                <div className="flex items-center bg-slate-800/50 rounded-full px-4 py-2 backdrop-blur-sm border border-slate-700/50">
-                  <Calendar className="w-5 h-5 mr-2 text-blue-400" />
-                  <span className="font-medium">{new Date(conference.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
-                </div>
-                <div className="flex items-center bg-slate-800/50 rounded-full px-4 py-2 backdrop-blur-sm border border-slate-700/50">
-                  <MapPin className="w-5 h-5 mr-2 text-blue-400" />
-                  <span className="font-medium">{conference.location}</span>
-                </div>
-              </div>
-            </div>
-            {conference.url && (
-              <a href={conference.url} target="_blank" rel="noopener noreferrer" className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-lg shadow-blue-900/20 flex items-center">
-                Official Website <ExternalLink className="w-4 h-4 ml-2" />
-              </a>
-            )}
-          </div>
-        </div>
+    <div className="mx-auto max-w-4xl px-5 py-12">
+      <Link href="/conferences" className="text-blue-800 underline">
+        &larr; Back to conferences
+      </Link>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        {conference.acronym && (
+          <span className="rounded bg-slate-200 px-2.5 py-1 text-sm font-semibold text-slate-800">
+            {conference.acronym}
+          </span>
+        )}
+        {conference.publicationState !== "published" && (
+          <span className="rounded bg-amber-200 px-2.5 py-1 text-sm font-semibold text-amber-900">
+            {conference.publicationState.toUpperCase()} (Curator Preview)
+          </span>
+        )}
       </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-5xl mx-auto px-6 -mt-12 relative z-20">
-        <div className="grid md:grid-cols-3 gap-8">
-          
-          {/* Left Column: Description */}
-          <div className="md:col-span-2 space-y-8">
-            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl shadow-slate-200/40">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">About this event</h2>
-              <div className="prose prose-slate max-w-none prose-lg text-slate-600 leading-relaxed">
-                {conference.description ? (
-                  <p>{conference.description}</p>
-                ) : (
-                  <p className="italic text-slate-400">No description provided for this conference.</p>
-                )}
-              </div>
-            </div>
-          </div>
+      <h1 className="mt-2 text-3xl font-bold">{conference.name}</h1>
 
-          {/* Right Column: RSVP Panel */}
-          <div className="md:col-span-1">
-            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl shadow-slate-200/40 sticky top-24">
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 mb-4">
-                  <Users className="w-8 h-8" />
-                </div>
-                <h3 className="text-3xl font-extrabold text-slate-900">{conference.attendees.length}</h3>
-                <p className="text-slate-500 font-medium mt-1 uppercase tracking-wide text-sm">Scholars Attending</p>
-              </div>
+      <div className="mt-3 text-slate-600">
+        <p className="font-semibold text-slate-800">{dateStr}</p>
+        <p className="mt-1">{conference.location} &middot; <span className="text-slate-500">Timezone: {conference.timezone}</span></p>
+      </div>
 
-              <form action={toggleRsvpAction} className="mt-8">
-                <button 
-                  type="submit"
-                  className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-sm ${
-                    isAttending 
-                      ? "bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200" 
-                      : "bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/20"
-                  }`}
-                >
-                  {isAttending ? "Cancel RSVP" : "Count Me In"}
-                </button>
-              </form>
-              {!isAttending && (
-                <p className="text-center text-xs text-slate-400 mt-4">RSVP to unlock private messaging and coordination features.</p>
-              )}
-            </div>
-          </div>
+      {conference.cfpDeadline && (
+        <div className={`my-6 rounded-xl border p-4 ${isCfpOpen ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+          <h2 className="font-semibold text-slate-900">Call For Papers (CFP) Deadline</h2>
+          <p className="mt-1 text-sm text-slate-700">
+            {new Date(conference.cfpDeadline).toLocaleString("en-IN", { timeZone: conference.timezone, dateStyle: "full", timeStyle: "short" })} ({conference.timezone})
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {isCfpOpen ? "Submissions are currently open." : "Submissions closed for this cycle."}
+          </p>
         </div>
+      )}
 
-        {/* Attendee Roster Section */}
-        <div className="mt-16">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-slate-900">Attendee Roster</h2>
-            <div className="h-px bg-slate-200 flex-grow ml-6"></div>
-          </div>
+      {conference.description && (
+        <div className="my-6 text-slate-800 leading-relaxed whitespace-pre-wrap">
+          {conference.description}
+        </div>
+      )}
 
-          {conference.attendees.length === 0 ? (
-            <div className="text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-300">
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-lg font-medium text-slate-600">No scholars have RSVP'd yet.</p>
-              <p className="text-slate-400 mt-1">Be the first to say you're going!</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {conference.attendees.map((attendee) => (
-                <div key={attendee.id} className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all group flex items-start space-x-4">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xl flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform">
-                    {attendee.user.name?.charAt(0) || "S"}
-                  </div>
-                  <div className="flex-grow min-w-0">
-                    <h3 className="font-bold text-slate-900 truncate">{attendee.user.name || "Anonymous Scholar"}</h3>
-                    <p className="text-sm text-slate-500 truncate mt-0.5">{attendee.user.current_institution || "Institution not listed"}</p>
-                    {attendee.user.research_domain && (
-                      <span className="inline-block mt-3 text-[11px] font-semibold uppercase tracking-wider px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
-                        {attendee.user.research_domain}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+      {safeUrl && (
+        <div className="my-6 rounded-xl border bg-white p-4">
+          <p className="text-sm font-medium text-slate-700">Verified Organizer Source:</p>
+          <a href={safeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-800 font-medium underline">
+            {safeUrl}
+          </a>
+          {conference.sourceCheckedAt && (
+            <p className="mt-1 text-xs text-slate-500">
+              Verified by curator on {new Date(conference.sourceCheckedAt).toLocaleDateString("en-IN", { timeZone: "UTC", dateStyle: "medium" })}
+            </p>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
+      )}
 
-export async function generateStaticParams() {
-  const conferences = await prisma.conference.findMany({ select: { id: true } });
-  return conferences.map((conf) => ({ id: conf.id }));
-}
+      {query.error && (
+        <p role="alert" className="my-4 rounded border border-red-300 bg-red-50 p-4 text-red-900">
+          {query.error.slice(0, 200)}
+        </p>
+      )}
+      {query.saved && (
+        <p role="status" className="my-4 rounded border border-green-300 bg-green-50 p-4 text-green-900">
+          Attendance updated.
+        </p>
+      )}
 
-export default function ConferenceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <div className="max-w-4xl mx-auto py-10 px-6">
-      <Suspense fallback={<div className="py-20 text-center text-gray-500 animate-pulse">Loading conference details...</div>}>
-        <ConferenceDetail params={params} />
-      </Suspense>
+      {approved ? (
+        <section aria-labelledby="attendance" className="mt-8 rounded-xl border bg-white p-6 shadow-xs">
+          <h2 id="attendance" className="text-xl font-semibold">Your attendance</h2>
+          <p className="my-3 text-sm text-slate-600">
+            Your attendance is visible to approved members only while your directory profile is visible. Withdraw visibility in your profile at any time.
+          </p>
+          <form action={rsvpAction}>
+            <input type="hidden" name="conferenceId" value={id} />
+            <input type="hidden" name="intent" value={attendance ? "cancel" : "attend"} />
+            <button
+              className={`rounded-lg px-5 py-3 font-medium text-white transition ${
+                attendance ? "bg-slate-700 hover:bg-slate-800" : "bg-blue-800 hover:bg-blue-900"
+              }`}
+              type="submit"
+            >
+              {attendance ? "Cancel RSVP" : "Count me in"}
+            </button>
+          </form>
+
+          <h3 className="mb-3 mt-8 text-lg font-semibold">Members sharing attendance</h3>
+          {roster.length === 0 ? (
+            <p className="text-slate-600 text-sm">No members are sharing attendance yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {roster.map((row) => (
+                <li key={row.userId} className="rounded-lg border p-4">
+                  <strong className="text-slate-900">{row.user.name}</strong>
+                  <p className="text-sm text-slate-700">{row.user.current_institution}</p>
+                  <p className="text-sm text-slate-500">{row.user.research_domain}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (
+        <section className="mt-8 rounded-xl border bg-white p-6">
+          <h2 className="text-xl font-semibold">Private member coordination</h2>
+          <p className="my-3 text-slate-600">Approved members can RSVP and view consented attendee profiles.</p>
+          <Link className="text-blue-800 underline font-medium" href={user ? "/membership" : "/signin"}>
+            {user ? "View membership status" : "Sign in to apply"}
+          </Link>
+        </section>
+      )}
     </div>
   );
 }

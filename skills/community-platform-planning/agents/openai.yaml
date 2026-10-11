@@ -1,0 +1,4 @@
+interface:
+  display_name: "Community Platform Planning"
+  short_description: "Adapt proven community-app blueprints into phased plans"
+  default_prompt: "Use $community-platform-planning to inspect this repository and adapt the café project's structure and approach into a project overview and phased delivery plan."

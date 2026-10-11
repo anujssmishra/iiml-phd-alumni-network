@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -23,6 +23,16 @@ model User {
   research_domain         String?
   methodological_expertise String? // Comma-separated tags
   open_to_chat            Boolean  @default(false)
+  membershipStatus        String   @default("pending")
+  role                    String   @default("member")
+  doctoralInstitution     String?
+  programme               String?
+  batchYear               Int?
+  membershipEvidence      String?
+  applicationSubmittedAt  DateTime?
+  reviewedAt              DateTime?
+  directoryVisible        Boolean  @default(false)
+  profileConfirmedAt      DateTime?
   
   // NextAuth required fields
   accounts                Account[]
@@ -33,6 +43,47 @@ model User {
 
   // Relationships
   conferencesAttending    ConferenceAttendee[]
+  reviewsReceived         MembershipReview[] @relation("ReviewTarget")
+  reviewsPerformed        MembershipReview[] @relation("Reviewer")
+  contactRequestsSent     ContactRequest[] @relation("ContactSender")
+  contactRequestsReceived ContactRequest[] @relation("ContactRecipient")
+  conferencesCurated      Conference[] @relation("ConferenceCurator")
+  conferenceSuggestions   ConferenceSuggestion[] @relation("ConferenceSubmitter")
+
+  @@index([membershipStatus, directoryVisible, current_institution])
+}
+
+model MembershipReview {
+  id           String @id @default(cuid())
+  reviewerId   String?
+  targetId     String?
+  fromStatus   String
+  toStatus     String
+  fromRole     String
+  toRole       String
+  method       String
+  reason       String
+  createdAt    DateTime @default(now())
+  reviewer     User? @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  target       User? @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: SetNull)
+
+  @@index([targetId, createdAt])
+}
+
+model ContactRequest {
+  id          String @id @default(cuid())
+  senderId    String
+  recipientId String
+  message     String
+  replyEmail  String?
+  status      String @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sender      User @relation("ContactSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User @relation("ContactRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, status])
 }
 
 model Account {
@@ -70,19 +121,52 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Phase 1: Conference Tracker
+// Phase 1 & P1C: Conference Tracker & Curation
 model Conference {
+  id               String   @id @default(cuid())
+  name             String
+  acronym          String?
+  date             DateTime @default(now())
+  startDate        DateTime @default(now())
+  endDate          DateTime @default(now())
+  timezone         String   @default("UTC")
+  cfpDeadline      DateTime?
+  publicationState String   @default("draft") // draft, published, archived
+  location         String
+  description      String?
+  url              String?
+  sourceUrl        String?
+  sourceCheckedAt  DateTime?
+  curatorId        String?
+  isDemo           Boolean  @default(false)
+
+  attendees        ConferenceAttendee[]
+  curator          User?    @relation("ConferenceCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([publicationState, startDate])
+}
+
+model ConferenceSuggestion {
   id          String   @id @default(cuid())
+  submitterId String
   name        String
-  date        DateTime
+  acronym     String?
+  startDate   DateTime
+  endDate     DateTime
   location    String
   description String?
-  url         String?
-  
-  attendees   ConferenceAttendee[]
-  
+  url         String
+  status      String   @default("pending") // pending, approved, rejected
+
+  submitter   User     @relation("ConferenceSubmitter", fields: [submitterId], references: [id], onDelete: Cascade)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt])
 }
 
 model ConferenceAttendee {
@@ -90,12 +174,12 @@ model ConferenceAttendee {
   userId       String
   conferenceId String
   status       String   @default("attending") // e.g. attending, considering
-  
+
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   conference   Conference @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
+
   @@unique([userId, conferenceId])
 }

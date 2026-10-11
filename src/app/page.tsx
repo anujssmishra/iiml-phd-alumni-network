@@ -1,82 +1,61 @@
 import Link from "next/link";
-import { ArrowRight, Globe, Lock, Users, BookOpen, GraduationCap, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, ShieldCheck, Users } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50 selection:bg-blue-200">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-slate-900 text-white border-b border-slate-800">
-        {/* Background Decorative Gradients */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] opacity-20 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 blur-[100px] rounded-full mix-blend-screen" />
-        </div>
-        
-        <div className="relative max-w-6xl mx-auto px-6 pt-32 pb-40 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700 text-sm text-slate-300 mb-8 backdrop-blur-sm">
-            <Sparkles className="w-4 h-4 text-blue-400" />
-            <span>Exclusive to IIM PhD & FPM Alumni</span>
+    <>
+      <section className="home-hero">
+        <div className="network-shell hero-grid">
+          <div className="stack">
+            <p className="eyebrow">An independent academic community</p>
+            <h1>Good research begins<br />with a conversation.</h1>
+            <p className="hero-description">A considered space for IIM PhD and FPM alumni to find colleagues, share academic interests, and plan conference connections.</p>
+            <div className="button-row">
+              <Link href="/membership" className="button">Join the network <ArrowRight aria-hidden="true" size={18} /></Link>
+              <Link href="/conferences" className="button button-light">Explore conferences</Link>
+            </div>
+            <p className="hero-note">Membership is individually reviewed. Your profile starts private.</p>
           </div>
-          
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 leading-tight">
-            The Academic <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
-              Collaboration Engine
-            </span>
-          </h1>
-          
-          <p className="text-xl md:text-2xl text-slate-300 max-w-3xl mx-auto mb-12 leading-relaxed font-light">
-            A high-trust digital network shifting the focus from mass corporate networking to high-value academic collaboration, citations, and tenure tracking.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link 
-              href="/conferences"
-              className="group bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)] hover:shadow-[0_0_60px_-15px_rgba(37,99,235,0.7)] flex items-center justify-center"
-            >
-              Enter the Network 
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
+          <div className="hero-note-card" aria-label="How the network works">
+            <BookOpen size={32} aria-hidden="true" />
+            <h2>A smaller network.<br />A shared academic context.</h2>
+            <ol>
+              <li><span>01</span><div><strong>Introduce yourself</strong><p>Sign in and submit your doctoral or alumni background for review.</p></div></li>
+              <li><span>02</span><div><strong>Choose what you share</strong><p>Decide whether your profile is visible to approved members.</p></div></li>
+              <li><span>03</span><div><strong>Make a connection</strong><p>Discover research interests and request an introduction with consent.</p></div></li>
+            </ol>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features Grid */}
-      <div className="max-w-7xl mx-auto px-6 py-24 relative -mt-20">
-        <div className="grid md:grid-cols-3 gap-8">
-          {/* Feature 1 */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/40 hover:-translate-y-1 transition-transform duration-300">
-            <div className="w-14 h-14 rounded-xl bg-blue-50 flex items-center justify-center mb-6">
-              <Lock className="w-7 h-7 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Gated Access</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Verified <code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">.ac.in</code> or <code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">.edu</code> emails only. A highly moderated, low-friction environment designed specifically for scholars.
-            </p>
-          </div>
-
-          {/* Feature 2 */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/40 hover:-translate-y-1 transition-transform duration-300">
-            <div className="w-14 h-14 rounded-xl bg-indigo-50 flex items-center justify-center mb-6">
-              <Globe className="w-7 h-7 text-indigo-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Global Tracker</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Coordinate meetups, share cabs, or split Airbnbs at major academic conferences worldwide like AOM, ICIS, and AMA.
-            </p>
-          </div>
-
-          {/* Feature 3 */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/40 hover:-translate-y-1 transition-transform duration-300">
-            <div className="w-14 h-14 rounded-xl bg-purple-50 flex items-center justify-center mb-6">
-              <Users className="w-7 h-7 text-purple-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Shadow Directory</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Map alumni to universities. Toggle "Open to Chat" to privately guide junior scholars on department culture and tenure realities.
-            </p>
-          </div>
+      <section className="network-shell home-features stack" aria-labelledby="network-features">
+        <div className="page-heading">
+          <p className="eyebrow">Built around trust</p>
+          <h2 id="network-features">The essentials for staying connected</h2>
+          <p className="muted">Useful academic connections begin with clear membership, current profiles, and deliberate sharing.</p>
         </div>
-      </div>
-    </div>
+        <div className="feature-grid">
+          <article className="panel stack">
+            <ShieldCheck className="feature-icon" size={30} aria-hidden="true" />
+            <h3>Reviewed membership</h3>
+            <p>Signing in establishes your identity. A separate review establishes membership, including an alumni route for people without an academic mailbox.</p>
+            <Link href="/membership" className="text-link">Membership and access <ArrowRight aria-hidden="true" size={16} /></Link>
+          </article>
+          <article className="panel stack">
+            <Users className="feature-icon" size={30} aria-hidden="true" />
+            <h3>A private directory</h3>
+            <p>Approved members can find opted-in colleagues by institution, research domain, and methods. Contact requests require acceptance before a reply address is shared.</p>
+            <Link href="/directory" className="text-link">Find colleagues <ArrowRight aria-hidden="true" size={16} /></Link>
+          </article>
+          <article className="panel stack">
+            <CalendarDays className="feature-icon" size={30} aria-hidden="true" />
+            <h3>Conference connections</h3>
+            <p>Browse the conference catalogue and manage your attendance as an approved member. Event information is a starting point; check organizer details before making plans.</p>
+            <Link href="/conferences" className="text-link">Browse conferences <ArrowRight aria-hidden="true" size={16} /></Link>
+          </article>
+        </div>
+        <p className="home-community-note">This independent peer network does not claim official endorsement by any IIM. Academic affiliations are self-reported; membership approval is not institutional verification of every profile field.</p>
+      </section>
+    </>
   );
 }

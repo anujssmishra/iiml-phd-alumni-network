@@ -1,113 +1,161 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { MapPin, Calendar, Users, ArrowRight, Globe } from "lucide-react";
-import { Suspense } from "react";
+import { listPublicConferences } from "@/lib/conference-service";
+import { getCurrentUser } from "@/lib/session";
 
-export const metadata = {
-  title: "Conference Tracker | IIM PhD Alumni Network",
-};
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Conferences | IIM PhD & FPM Network" };
 
-// Extracted data-fetching component
-async function ConferenceList() {
-  const conferences = await prisma.conference.findMany({
-    orderBy: { date: "asc" },
-    include: { _count: { select: { attendees: true } } },
-  });
+function formatDateRange(start: Date, end: Date, timeZone = "UTC"): string {
+  const sDay = start.toLocaleDateString("en-IN", { timeZone, day: "numeric" });
+  const sMonth = start.toLocaleDateString("en-IN", { timeZone, month: "short" });
+  const sYear = start.toLocaleDateString("en-IN", { timeZone, year: "numeric" });
 
-  if (conferences.length === 0) {
-    return (
-      <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
-        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Calendar className="w-8 h-8 text-slate-400" />
-        </div>
-        <h3 className="text-xl font-semibold text-slate-900">No upcoming conferences</h3>
-        <p className="text-slate-500 mt-2 max-w-sm mx-auto">Check back later for new academic events, or suggest a conference to the community.</p>
-      </div>
-    );
+  const eDay = end.toLocaleDateString("en-IN", { timeZone, day: "numeric" });
+  const eMonth = end.toLocaleDateString("en-IN", { timeZone, month: "short" });
+  const eYear = end.toLocaleDateString("en-IN", { timeZone, year: "numeric" });
+
+  if (sYear === eYear && sMonth === eMonth && sDay === eDay) {
+    return `${sDay} ${sMonth} ${sYear}`;
   }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {conferences.map((conf) => (
-        <Link key={conf.id} href={`/conferences/${conf.id}`} className="block group h-full">
-          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col relative overflow-hidden">
-            {/* Top right gradient accent */}
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-colors" />
-            
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold uppercase tracking-wider mb-6 w-max border border-blue-100">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{new Date(conf.date).toLocaleString("en-US", { month: "short", year: "numeric" })}</span>
-            </div>
-
-            <h2 className="text-2xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors mb-4 line-clamp-2 leading-snug">
-              {conf.name}
-            </h2>
-            
-            <div className="space-y-3 flex-grow">
-              <div className="flex items-start text-slate-600 text-sm">
-                <MapPin className="w-4 h-4 mr-2.5 text-slate-400 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{conf.location}</span>
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
-              <div className="flex items-center text-slate-500 text-sm font-medium">
-                <Users className="w-4 h-4 mr-2" />
-                {conf._count.attendees} {conf._count.attendees === 1 ? 'Scholar' : 'Scholars'}
-              </div>
-              <div className="flex items-center text-blue-600 text-sm font-semibold group-hover:translate-x-1 transition-transform">
-                Details <ArrowRight className="w-4 h-4 ml-1" />
-              </div>
-            </div>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
+  if (sYear === eYear && sMonth === eMonth) {
+    return `${sDay}–${eDay} ${sMonth} ${sYear}`;
+  }
+  if (sYear === eYear) {
+    return `${sDay} ${sMonth} – ${eDay} ${eMonth} ${sYear}`;
+  }
+  return `${sDay} ${sMonth} ${sYear} – ${eDay} ${eMonth} ${eYear}`;
 }
 
-export default function ConferencesPage() {
+export default async function ConferencesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; timeframe?: "upcoming" | "past" | "all"; page?: string }>;
+}) {
+  const query = await searchParams;
+  const timeframe = query.timeframe === "past" || query.timeframe === "all" ? query.timeframe : "upcoming";
+  const search = query.q ?? "";
+
+  const { conferences, total } = await listPublicConferences({
+    q: search,
+    timeframe,
+    page: query.page,
+  });
+
+  const user = await getCurrentUser();
+  const isApproved = user?.membershipStatus === "approved";
+
   return (
-    <div className="min-h-screen bg-slate-50/50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <Globe className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Conference Tracker</h1>
-              <p className="text-sm text-slate-500">IIM PhD Alumni Network</p>
-            </div>
-          </div>
-          <button className="hidden sm:inline-flex bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-sm">
-            Suggest Event
+    <div className="mx-auto max-w-6xl px-5 py-12">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Conference catalogue</h1>
+          <p className="mt-2 text-slate-600">
+            Curated tier-1 academic conferences ({total} total). Event facts are public; attendance coordination is reserved for approved members.
+          </p>
+        </div>
+        <div>
+          <Link
+            href={isApproved ? "/conferences/suggest" : user ? "/membership" : "/signin"}
+            className="inline-block rounded-lg bg-blue-800 px-5 py-2.5 font-medium text-white hover:bg-blue-900"
+          >
+            Suggest a Conference
+          </Link>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <form method="get" className="my-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border bg-white p-4">
+        <div className="flex gap-2">
+          <Link
+            href={`/conferences?timeframe=upcoming${search ? `&q=${encodeURIComponent(search)}` : ""}`}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              timeframe === "upcoming" ? "bg-blue-100 text-blue-900 font-semibold" : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Upcoming
+          </Link>
+          <Link
+            href={`/conferences?timeframe=past${search ? `&q=${encodeURIComponent(search)}` : ""}`}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              timeframe === "past" ? "bg-blue-100 text-blue-900 font-semibold" : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Past
+          </Link>
+          <Link
+            href={`/conferences?timeframe=all${search ? `&q=${encodeURIComponent(search)}` : ""}`}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              timeframe === "all" ? "bg-blue-100 text-blue-900 font-semibold" : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            All Events
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input type="hidden" name="timeframe" value={timeframe} />
+          <input
+            type="search"
+            name="q"
+            defaultValue={search}
+            placeholder="Search conferences or location..."
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+          />
+          <button type="submit" className="rounded-lg bg-slate-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-900">
+            Search
           </button>
         </div>
-      </div>
+      </form>
 
-      <div className="max-w-7xl mx-auto py-12 px-6">
-        <div className="mb-12">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Upcoming Events</h2>
-          <p className="text-slate-500 mt-2 text-lg">Discover where scholars are gathering and plan your next meetup.</p>
+      {conferences.length === 0 ? (
+        <div className="rounded-xl border bg-white p-8 text-center text-slate-600">
+          No conferences found for this search or filter.
         </div>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {conferences.map((conf) => {
+            const dateStr = formatDateRange(conf.startDate, conf.endDate, conf.timezone);
+            const isCfpOpen = conf.cfpDeadline && new Date(conf.cfpDeadline) > new Date();
 
-        <Suspense fallback={
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1,2,3].map(i => (
-              <div key={i} className="h-80 bg-white rounded-3xl border border-slate-200 shadow-sm animate-pulse flex flex-col p-8">
-                <div className="w-24 h-6 bg-slate-100 rounded-full mb-6" />
-                <div className="w-3/4 h-8 bg-slate-100 rounded-lg mb-4" />
-                <div className="w-1/2 h-8 bg-slate-100 rounded-lg mb-8" />
-                <div className="w-2/3 h-4 bg-slate-100 rounded mt-auto" />
-              </div>
-            ))}
-          </div>
-        }>
-          <ConferenceList />
-        </Suspense>
-      </div>
+            return (
+              <article key={conf.id} className="flex flex-col justify-between rounded-xl border bg-white p-6 shadow-xs">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    {conf.acronym && (
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-800">
+                        {conf.acronym}
+                      </span>
+                    )}
+                    {isCfpOpen && (
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                        CFP Open
+                      </span>
+                    )}
+                  </div>
+
+                  <h2 className="my-3 text-xl font-semibold">
+                    <Link className="text-blue-800 hover:underline" href={`/conferences/${conf.id}`}>
+                      {conf.name}
+                    </Link>
+                  </h2>
+
+                  <p className="text-sm font-medium text-slate-700">{dateStr}</p>
+                  <p className="text-sm text-slate-500 mt-1">{conf.location}</p>
+
+                  {conf.description && <p className="mt-3 text-sm text-slate-600 line-clamp-3">{conf.description}</p>}
+                </div>
+
+                <div className="mt-6 pt-4 border-t text-xs text-slate-500 flex justify-between items-center">
+                  <span>Timezone: {conf.timezone}</span>
+                  <Link href={`/conferences/${conf.id}`} className="font-semibold text-blue-800 hover:underline">
+                    View details &rarr;
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
