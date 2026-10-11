@@ -756,6 +756,17 @@ async function main() {
   try {
     const checkedAt = new Date("2026-10-11T00:00:00.000Z");
 
+    // Remove legacy synthetic fixture if present
+    await prisma.conference.deleteMany({
+      where: {
+        OR: [
+          { id: "demo-research-symposium" },
+          { acronym: "DRS 2030" },
+          { isDemo: true },
+        ],
+      },
+    });
+
     for (const conf of CONFERENCES_TO_SEED) {
       await prisma.conference.upsert({
         where: { id: conf.id },
