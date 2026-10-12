@@ -335,23 +335,45 @@ export default async function ConferenceDetailPage({
               </div>
 
               <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-                RSVP to coordinate flight schedules, share airport cabs, split Airbnbs, and join the informal IIM doctoral scholar meetup on-site.
+                Signal your attendance to connect with fellow IIM doctoral scholars and alumni attending this conference.
               </p>
 
-              <form action={rsvpAction} className="mt-5">
-                <input type="hidden" name="conferenceId" value={id} />
-                <input type="hidden" name="intent" value={attendance ? "cancel" : "attend"} />
-                <button
-                  type="submit"
-                  className={`w-full rounded-xl py-2.5 text-xs font-semibold transition-all shadow-xs ${
-                    attendance
-                      ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                      : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-500/20"
-                  }`}
-                >
-                  {attendance ? "Cancel My Attendance" : "Count Me In (RSVP)"}
-                </button>
-              </form>
+              {conference.publicationState !== "published" ? (
+                <div className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200">
+                  <p className="font-semibold">Event Not Published</p>
+                  <p className="mt-1">
+                    This conference is currently in {conference.publicationState} status and is not accepting new RSVPs.
+                    {attendance ? " You may still cancel your existing attendance below." : ""}
+                  </p>
+                  {attendance && (
+                    <form action={rsvpAction} className="mt-3">
+                      <input type="hidden" name="conferenceId" value={id} />
+                      <input type="hidden" name="intent" value="cancel" />
+                      <button
+                        type="submit"
+                        className="w-full rounded-xl py-2 text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
+                      >
+                        Cancel My Attendance
+                      </button>
+                    </form>
+                  )}
+                </div>
+              ) : (
+                <form action={rsvpAction} className="mt-5">
+                  <input type="hidden" name="conferenceId" value={id} />
+                  <input type="hidden" name="intent" value={attendance ? "cancel" : "attend"} />
+                  <button
+                    type="submit"
+                    className={`w-full rounded-xl py-2.5 text-xs font-semibold transition-all shadow-xs ${
+                      attendance
+                        ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-500/20"
+                    }`}
+                  >
+                    {attendance ? "Cancel My Attendance" : "Count Me In (RSVP)"}
+                  </button>
+                </form>
+              )}
               <p className="mt-2.5 text-center text-[11px] text-slate-400">
                 Visible only to approved IIM scholars with an active directory profile.
               </p>
@@ -363,7 +385,7 @@ export default async function ConferenceDetailPage({
                 <h2 className="text-base font-bold text-slate-900">Scholar Coordination</h2>
               </div>
               <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-                Verified IIM PhD/FPM scholars can RSVP to unlock the attendee roster and coordinate travel, accommodation, and co-authorship meetups.
+                Approved IIM PhD/FPM scholars can RSVP to view the attendee roster and connect with peers.
               </p>
               <div className="mt-5">
                 <Link
@@ -423,7 +445,7 @@ export default async function ConferenceDetailPage({
             <div className="rounded-xl border border-slate-200/90 bg-white p-6 shadow-2xs text-xs">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <Building2 className="w-4 h-4 text-slate-500" />
-                <h3 className="font-bold text-slate-900">Verified Organizer Source</h3>
+                <h3 className="font-bold text-slate-900">Official Organizer Source</h3>
               </div>
               <div className="mt-3">
                 <a
@@ -436,7 +458,7 @@ export default async function ConferenceDetailPage({
                 </a>
                 {conference.sourceCheckedAt && (
                   <p className="mt-2 text-[11px] text-slate-500">
-                    Last validated by conference curation team on{" "}
+                    Source verified on{" "}
                     {new Date(conference.sourceCheckedAt).toLocaleDateString("en-IN", {
                       timeZone: "UTC",
                       dateStyle: "medium",

@@ -86,13 +86,13 @@ export default async function ConferencesPage({
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 px-3 py-1 text-xs font-semibold text-blue-200 mb-3 backdrop-blur-xs">
               <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              <span>Tier-1 Academic Conference Radar</span>
+              <span>Curated Academic Conference Calendar</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Global Conference Calendar
+              Academic Conference Calendar
             </h1>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Curated international and Indian management conferences across AOM, AIS, INFORMS, and pan-IIM circuits. Coordinate travel, meetups, and accommodations with fellow scholars.
+              Curated international and Indian management conferences across major research circuits. Approved members can signal attendance and see participating scholars.
             </p>
           </div>
 

@@ -13,6 +13,7 @@ import {
   reviewSuggestionAction,
 } from "./actions";
 import { QuickFetchTool } from "./quick-fetch-tool";
+import { EditConferenceModal } from "./edit-conference-modal";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Curator Workspace | IIM PhD & FPM Network" };
@@ -335,27 +336,53 @@ export default async function CuratorConferencesPage({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <form action={setPublicationStateAction} className="inline">
-                    <input type="hidden" name="conferenceId" value={conf.id} />
-                    <input
-                      type="hidden"
-                      name="state"
-                      value={conf.publicationState === "published" ? "draft" : "published"}
-                    />
-                    <button
-                      type="submit"
-                      className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      {conf.publicationState === "published" ? "Unpublish to Draft" : "Publish"}
-                    </button>
-                  </form>
+                <div className="flex flex-wrap items-center gap-2">
+                  <EditConferenceModal conference={conf} />
+
+                  {conf.publicationState !== "published" && (
+                    <form action={setPublicationStateAction} className="inline">
+                      <input type="hidden" name="conferenceId" value={conf.id} />
+                      <input type="hidden" name="state" value="published" />
+                      <button
+                        type="submit"
+                        className="rounded border border-green-600 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800 hover:bg-green-100 transition-colors"
+                      >
+                        Publish
+                      </button>
+                    </form>
+                  )}
+
+                  {conf.publicationState !== "draft" && (
+                    <form action={setPublicationStateAction} className="inline">
+                      <input type="hidden" name="conferenceId" value={conf.id} />
+                      <input type="hidden" name="state" value="draft" />
+                      <button
+                        type="submit"
+                        className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        {conf.publicationState === "archived" ? "Restore to Draft" : "Unpublish to Draft"}
+                      </button>
+                    </form>
+                  )}
+
+                  {conf.publicationState !== "archived" && (
+                    <form action={setPublicationStateAction} className="inline">
+                      <input type="hidden" name="conferenceId" value={conf.id} />
+                      <input type="hidden" name="state" value="archived" />
+                      <button
+                        type="submit"
+                        className="rounded border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+                      >
+                        Archive
+                      </button>
+                    </form>
+                  )}
 
                   <form action={deleteConferenceAction} className="inline">
                     <input type="hidden" name="conferenceId" value={conf.id} />
                     <button
                       type="submit"
-                      className="rounded bg-red-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-900"
+                      className="rounded bg-red-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-900 transition-colors"
                     >
                       Delete
                     </button>

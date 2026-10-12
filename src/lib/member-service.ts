@@ -176,7 +176,11 @@ export async function setAttendance(userId: string | null, conferenceId: string,
   if (typeof attending !== "boolean") throw new NetworkError("Invalid RSVP intent.");
   return prisma.$transaction(async db => {
     const user = await member(db, userId);
-    if (!await db.conference.findUnique({ where: { id: conferenceId } })) throw new NetworkError("Conference not found.", 404);
+    const conf = await db.conference.findUnique({ where: { id: conferenceId } });
+    if (!conf) throw new NetworkError("Conference not found.", 404);
+    if (attending && conf.publicationState !== "published") {
+      throw new NetworkError("Only published conferences accept RSVPs.", 403);
+    }
     if (attending) return db.conferenceAttendee.upsert({ where: { userId_conferenceId: { userId: user.id, conferenceId } }, create: { userId: user.id, conferenceId, status: "attending" }, update: { status: "attending" } });
     await db.conferenceAttendee.deleteMany({ where: { userId: user.id, conferenceId } });
   });
@@ -188,6 +192,11 @@ export async function getOwnAttendance(userId: string | null, conferenceId: stri
 }
 
 export async function getRoster(userId: string | null, conferenceId: string) {
-  await member(prisma, userId);
+  const caller = await member(prisma, userId);
+  const conf = await prisma.conference.findUnique({ where: { id: conferenceId } });
+  if (!conf) throw new NetworkError("Conference not found.", 404);
+  if (conf.publicationState !== "published" && caller.role !== "curator" && caller.role !== "admin") {
+    throw new NetworkError("Conference not found.", 404);
+  }
   return prisma.conferenceAttendee.findMany({ where: { conferenceId, user: { membershipStatus: "approved", directoryVisible: true } }, select: { userId: true, status: true, user: { select: directorySelect } }, orderBy: { createdAt: "asc" } });
 }
