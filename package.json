@@ -17,6 +17,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:dev": "tsx scripts/seed-local-dev.ts",
     "db:backup": "node scripts/backup-db.mjs",
     "db:restore": "node scripts/restore-db.mjs",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
