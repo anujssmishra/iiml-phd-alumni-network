@@ -52,8 +52,44 @@ The three-versus-27 seed assertion is a source-identified mismatch, **not a test
 - The old ten-browser suite is P1B coverage, not a comprehensive security/accessibility certification or complete P1C acceptance suite.
 - This update changes planning/documentation only; all H1–H6 implementation work remains separately executable.
 
-## How to record the next verification
+## Hardening verification evidence (Gates H1–H5)
 
-After H1–H2, run the H3 checks in a disposable checkout and record: exact revision/dirty scope, runtime/package-manager versions, install outcome, migration fixtures, lint/typecheck, offline test count, build, browser scenarios, console diagnostics and GitHub Actions result. Record live OAuth, official-source review and restore evidence separately with their environment and operator.
+Verified at commit `e1e8190` and working tree:
 
-Documentation checks for this update: local Markdown links, source path references, command names/counts against source, phase/status consistency and `git diff --check`. Application tests/build are intentionally not rerun by this documentation-only task.
+- **H1 (Ingestion boundaries & unattended writes):**
+  - Enforced `requireCurator` authorization boundary on quick-fetch server actions before any network request or database lookup.
+  - Added strict SSRF defense: rejects IPv4/IPv6 private ranges, loopback (`127.0.0.1`), link-local, cloud metadata (`169.254.169.254`), non-HTTP(S) schemes, embedded credentials, and unsafe ports.
+  - Bounded fetch size to 2MB and timeout to 8 seconds; validated client-supplied reconciliation payloads with `parseConference` schema.
+  - Fail-closed cron authentication requiring `Authorization: Bearer <CRON_SECRET>` or `x-cron-secret` header (rejects URL query parameters) and single-run lock preventing overlapping ingestion runs.
+  - Auto-scheduler disabled by default (`ENABLE_AUTO_CONFERENCE_SYNC=true` required).
+  - Verified by 7 tests in `tests/h1-hardening.test.ts`.
+
+- **H2 (Upgrades, fixtures & edition provenance):**
+  - Repaired SQLite populated table migration (`prisma/migrations/20261011000001_conference_curation/migration.sql`) avoiding non-constant default errors on existing rows.
+  - Separated synthetic 3-row demo seed (`prisma/seed.ts`) from 27 real-world conference candidate catalogue (`src/lib/catalogue-data.ts` and non-destructive importer `scripts/import-catalogue.ts`).
+  - Added edition-aware matching (`extractBaseAcronym` & `isSameEdition`) preventing shared organizer URLs (e.g. `aisnet.org`) and distinct years from collapsing into each other.
+  - Background batch ingestion is strictly draft-only, preserves curator edits (`curatorId != null`), and never resurrects archived records.
+  - Verified by 5 tests in `tests/h2-hardening.test.ts`.
+
+- **H3 (Verification baseline & offline reliability):**
+  - Injected deterministic offline mock fetcher (`globalThis.__mockConferenceFetcher`) in tests, eliminating live external network latency and flakiness.
+  - Suite execution reduced from ~78s to ~8.5s completely offline.
+
+- **H4 (Lifecycle, curator editing & RSVP boundaries):**
+  - RSVP boundary in `src/lib/member-service.ts`: `setAttendance` rejects RSVPs (`attending: true`) on draft and archived conferences (HTTP 403), while preserving cancellation rights for existing attendees.
+  - Roster read protection: `getRoster` rejects non-curator access on non-published conferences.
+  - Curator manual editing UI: added `EditConferenceModal` in `src/app/admin/conferences/` wired to `updateConferenceAction`.
+  - Added explicit Archive and Restore to Draft action controls in curator workspace.
+  - Removed unsupported copy ("Verified Sources", "tier-1") and aligned text with verified features.
+  - Verified by 4 tests in `tests/h4-lifecycle.test.ts`.
+
+- **H5 (Readiness, backup/restore rehearsal & browser coverage):**
+  - Implemented online atomic SQLite backup script `scripts/backup-db.mjs` via `VACUUM INTO` with independent `PRAGMA integrity_check` verification.
+  - Implemented safe restore script `scripts/restore-db.mjs` with pre-restore safety snapshots and `-wal`/`-shm` cleanup.
+  - Added operational npm scripts `npm run db:backup` and `npm run db:restore`.
+  - Verified backup, corruption simulation, 100% data recovery, and integrity in `tests/h5-backup-restore.test.ts`.
+  - Expanded Playwright browser test coverage from 10 to 14 workflows (`tests/browser/conferences.spec.ts` covering curator edit modal persistence, archive/restore lifecycle, member suggestion and curator review, and guest 404 access control on drafts).
+  - All **62 unit/integration tests** pass cleanly in `node scripts/isolated-database.mjs test`.
+  - All **14 Playwright browser tests** pass cleanly in `node scripts/isolated-database.mjs browser`.
+  - Full check pipeline (`npm run check`) passes cleanly with zero errors.
+

@@ -17,6 +17,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "tsx prisma/seed.ts",
+    "db:backup": "node scripts/backup-db.mjs",
+    "db:restore": "node scripts/restore-db.mjs",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "sync:conferences": "tsx scripts/sync-conferences.ts",
     "sync:auto-conferences": "tsx scripts/auto-sync-all-conferences.ts",

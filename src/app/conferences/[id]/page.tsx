@@ -353,7 +353,7 @@ export default async function ConferenceDetailPage({
                         type="submit"
                         className="w-full rounded-xl py-2 text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
                       >
-                        Cancel My Attendance
+                        Cancel RSVP
                       </button>
                     </form>
                   )}
@@ -370,7 +370,7 @@ export default async function ConferenceDetailPage({
                         : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-500/20"
                     }`}
                   >
-                    {attendance ? "Cancel My Attendance" : "Count Me In (RSVP)"}
+                    {attendance ? "Cancel RSVP" : "Count me in"}
                   </button>
                 </form>
               )}

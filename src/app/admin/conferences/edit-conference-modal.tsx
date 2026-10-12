@@ -65,10 +65,7 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
             </div>
 
             <form
-              action={async (formData) => {
-                await updateConferenceAction(formData);
-                setIsOpen(false);
-              }}
+              action={updateConferenceAction}
               className="mt-5 space-y-4 text-xs"
             >
               <input type="hidden" name="conferenceId" value={conference.id} />
@@ -193,14 +190,14 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
 
               <div>
                 <label htmlFor={`edit-url-${conference.id}`} className="block font-semibold text-slate-800">
-                  Organizer URL *
+                  Organizer URL
                 </label>
                 <input
                   type="url"
                   id={`edit-url-${conference.id}`}
                   name="url"
                   defaultValue={conference.url ?? ""}
-                  required
+                  placeholder="https://example.org"
                   className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs"
                 />
               </div>
