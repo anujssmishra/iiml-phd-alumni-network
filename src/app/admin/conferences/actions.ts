@@ -9,15 +9,16 @@ import {
   deleteConference,
   setPublicationState,
   reviewConferenceSuggestion,
+  requireCurator,
 } from "@/lib/conference-service";
-import { fetchConferenceFromUrl } from "@/lib/conference-fetcher";
+import { fetchConferenceFromUrl, ExtractedConference } from "@/lib/conference-fetcher";
 import {
   findExistingConferenceMatch,
   computeConferenceDiff,
   reconcileConferenceSync,
   ReconcileAction,
 } from "@/lib/conference-sync";
-import { NetworkError } from "@/lib/validation";
+import { NetworkError, parseConference } from "@/lib/validation";
 
 export async function createConferenceAction(form: FormData) {
   const userId = await getSessionUserId();
@@ -166,6 +167,9 @@ export async function reviewSuggestionAction(form: FormData) {
 
 export async function quickFetchConferenceAction(urlInput: string) {
   try {
+    const userId = await getSessionUserId();
+    await requireCurator(userId);
+
     const extracted = await fetchConferenceFromUrl(urlInput);
     const match = await findExistingConferenceMatch(extracted);
     const diff = match ? computeConferenceDiff(match.conference, extracted) : null;
@@ -179,28 +183,67 @@ export async function quickFetchConferenceAction(urlInput: string) {
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Failed to fetch conference from URL.",
+      error: e instanceof NetworkError ? e.message : "Failed to fetch conference from URL.",
     };
   }
 }
 
 export async function applyQuickFetchAction(form: FormData) {
   const userId = await getSessionUserId();
-  const action = String(form.get("reconcileAction") ?? "create_draft") as ReconcileAction;
-  const targetConferenceId = form.get("targetConferenceId") ? String(form.get("targetConferenceId")) : undefined;
-
-  const rawExtracted = String(form.get("extractedPayload") ?? "");
   let error: string | null = null;
 
   try {
-    if (!rawExtracted) throw new NetworkError("Missing extracted conference payload.");
-    const payload = JSON.parse(rawExtracted);
+    await requireCurator(userId);
 
-    const extracted = {
-      ...payload,
-      startDate: new Date(payload.startDate),
-      endDate: new Date(payload.endDate),
-      cfpDeadline: payload.cfpDeadline ? new Date(payload.cfpDeadline) : null,
+    const rawAction = String(form.get("reconcileAction") ?? "create_draft");
+    if (!["create_draft", "create_published", "update_existing"].includes(rawAction)) {
+      throw new NetworkError("Invalid reconciliation action.");
+    }
+    const action = rawAction as ReconcileAction;
+    const targetConferenceId = form.get("targetConferenceId") ? String(form.get("targetConferenceId")) : undefined;
+
+    const rawExtracted = String(form.get("extractedPayload") ?? "");
+    if (!rawExtracted) throw new NetworkError("Missing extracted conference payload.");
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(rawExtracted);
+    } catch {
+      throw new NetworkError("Malformed conference payload JSON.");
+    }
+
+    const validated = parseConference({
+      name: String(payload.name ?? ""),
+      acronym: payload.acronym ? String(payload.acronym) : undefined,
+      startDate: String(payload.startDate ?? ""),
+      endDate: String(payload.endDate ?? ""),
+      timezone: String(payload.timezone ?? "UTC"),
+      cfpDeadline: payload.cfpDeadline ? String(payload.cfpDeadline) : undefined,
+      location: String(payload.location ?? ""),
+      description: payload.description ? String(payload.description) : undefined,
+      url: String(payload.url ?? ""),
+      sourceUrl: String(payload.sourceUrl ?? payload.url ?? ""),
+      publicationState: action === "create_published" ? "published" : "draft",
+    });
+
+    const extracted: ExtractedConference = {
+      name: validated.name,
+      acronym: validated.acronym ?? null,
+      startDate: validated.startDate,
+      endDate: validated.endDate,
+      timezone: validated.timezone,
+      cfpDeadline: validated.cfpDeadline ?? null,
+      location: validated.location,
+      description: validated.description ?? null,
+      url: validated.url ?? "",
+      sourceUrl: validated.sourceUrl ?? validated.url ?? "",
+      confidenceScore: typeof payload.confidenceScore === "number" ? Math.max(0, Math.min(1, payload.confidenceScore)) : 0.5,
+      rawMetadata: {
+        jsonLdFound: Boolean(payload.rawMetadata && typeof payload.rawMetadata === "object" && (payload.rawMetadata as Record<string, unknown>).jsonLdFound),
+        openGraphFound: Boolean(payload.rawMetadata && typeof payload.rawMetadata === "object" && (payload.rawMetadata as Record<string, unknown>).openGraphFound),
+        microdataFound: false,
+        microformatsFound: false,
+      },
     };
 
     await reconcileConferenceSync(userId, action, extracted, targetConferenceId);

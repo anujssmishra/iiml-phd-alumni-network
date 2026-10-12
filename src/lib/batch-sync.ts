@@ -1,6 +1,16 @@
 import { prisma } from "./prisma";
-import { fetchConferenceFromUrl } from "./conference-fetcher";
+import { fetchConferenceFromUrl, ExtractedConference } from "./conference-fetcher";
 import { findExistingConferenceMatch, computeConferenceDiff } from "./conference-sync";
+import { NetworkError } from "./validation";
+
+declare global {
+  var __conferenceBatchSyncLock: boolean | undefined;
+  var __mockConferenceFetcher: ((url: string) => Promise<ExtractedConference>) | undefined;
+}
+
+export function isSyncInProgress(): boolean {
+  return Boolean(globalThis.__conferenceBatchSyncLock);
+}
 
 export interface Tier1Source {
   key: string;
@@ -128,20 +138,34 @@ export interface BatchSyncSummary {
   details: BatchSyncSummaryDetail[];
 }
 
-export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
-  console.log(`[batch-sync] Starting batch conference ingestion across ${TIER1_CONFERENCE_SOURCES.length} tier-1 sources...`);
+export interface SyncBatchOptions {
+  fetcher?: (url: string) => Promise<ExtractedConference>;
+  sources?: Tier1Source[];
+}
 
-  let checked = 0;
-  let created = 0;
-  let updated = 0;
-  let unchanged = 0;
-  let errors = 0;
-  const details: BatchSyncSummaryDetail[] = [];
+export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promise<BatchSyncSummary> {
+  if (globalThis.__conferenceBatchSyncLock) {
+    throw new NetworkError("A conference sync operation is already in progress.", 409);
+  }
+  globalThis.__conferenceBatchSyncLock = true;
 
-  for (const source of TIER1_CONFERENCE_SOURCES) {
+  const fetcher = options?.fetcher ?? globalThis.__mockConferenceFetcher ?? fetchConferenceFromUrl;
+  const sources = options?.sources ?? TIER1_CONFERENCE_SOURCES;
+
+  try {
+    console.log(`[batch-sync] Starting batch conference ingestion across ${sources.length} tier-1 sources...`);
+
+    let checked = 0;
+    let created = 0;
+    let updated = 0;
+    let unchanged = 0;
+    let errors = 0;
+    const details: BatchSyncSummaryDetail[] = [];
+
+  for (const source of sources) {
     try {
       console.log(`[batch-sync] Fetching ${source.name} (${source.url})...`);
-      const extracted = await fetchConferenceFromUrl(source.url);
+      const extracted = await fetcher(source.url);
 
       // Prefer extracted acronym if found, fallback to curated source acronym
       const finalAcronym = extracted.acronym || source.acronym;
@@ -154,6 +178,38 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
       checked++;
 
       if (match) {
+        // 1. Never resurrect or overwrite archived records
+        if (match.conference.publicationState === "archived") {
+          await prisma.conference.update({
+            where: { id: match.conference.id },
+            data: { sourceCheckedAt: new Date() },
+          });
+          unchanged++;
+          details.push({
+            sourceKey: source.key,
+            name: source.name,
+            status: "unchanged",
+            message: "Record is archived; preserved without modifications.",
+          });
+          continue;
+        }
+
+        // 2. Never overwrite curator-reviewed records
+        if (match.conference.curatorId != null) {
+          await prisma.conference.update({
+            where: { id: match.conference.id },
+            data: { sourceCheckedAt: new Date() },
+          });
+          unchanged++;
+          details.push({
+            sourceKey: source.key,
+            name: source.name,
+            status: "unchanged",
+            message: "Curator-reviewed record; preserved without modifications.",
+          });
+          continue;
+        }
+
         const diff = computeConferenceDiff(match.conference, extracted);
         if (diff.hasChanges) {
           await prisma.conference.update({
@@ -171,7 +227,7 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
               url: extracted.url || source.url,
               sourceUrl: source.url,
               sourceCheckedAt: new Date(),
-              publicationState: "published",
+              publicationState: match.conference.publicationState,
             },
           });
           updated++;
@@ -186,7 +242,6 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
             where: { id: match.conference.id },
             data: {
               sourceCheckedAt: new Date(),
-              publicationState: "published",
             },
           });
           unchanged++;
@@ -198,6 +253,7 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
           });
         }
       } else {
+        // Ingest new conferences strictly as drafts for curator review
         await prisma.conference.create({
           data: {
             name: extracted.name || source.name,
@@ -212,7 +268,7 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
             url: extracted.url || source.url,
             sourceUrl: source.url,
             sourceCheckedAt: new Date(),
-            publicationState: "published",
+            publicationState: "draft",
           },
         });
         created++;
@@ -220,7 +276,7 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
           sourceKey: source.key,
           name: source.name,
           status: "created",
-          message: "New conference auto-created and published.",
+          message: "New conference ingested as draft for curator review.",
         });
       }
     } catch (err) {
@@ -235,17 +291,22 @@ export async function syncAllConferencesBatch(): Promise<BatchSyncSummary> {
       });
     }
 
-    // Rate-limiting delay between requests
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Rate-limiting delay between requests (skip when using mock fetcher)
+    if (!options?.fetcher && !globalThis.__mockConferenceFetcher) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
   }
 
-  return {
-    totalSources: TIER1_CONFERENCE_SOURCES.length,
-    checked,
-    created,
-    updated,
-    unchanged,
-    errors,
-    details,
-  };
+    return {
+      totalSources: sources.length,
+      checked,
+      created,
+      updated,
+      unchanged,
+      errors,
+      details,
+    };
+  } finally {
+    globalThis.__conferenceBatchSyncLock = false;
+  }
 }

@@ -1,3 +1,5 @@
+import dns from "node:dns/promises";
+import net from "node:net";
 import { parseConference, NetworkError } from "./validation";
 
 export interface ExtractedConference {
@@ -96,37 +98,239 @@ export function canonicalizeUrl(rawUrl: string): string {
   }
 }
 
-export async function fetchConferenceFromUrl(urlInput: string): Promise<ExtractedConference> {
-  const sourceUrl = canonicalizeUrl(urlInput.trim());
-  if (!/^https?:\/\//i.test(sourceUrl)) {
-    throw new NetworkError("Invalid URL protocol. Must start with http:// or https://");
+export function isPrivateOrRestrictedIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
+      return true;
+    }
+    const [a, b, c, d] = parts;
+    // 0.0.0.0/8 (Current network)
+    if (a === 0) return true;
+    // 10.0.0.0/8 (Private)
+    if (a === 10) return true;
+    // 100.64.0.0/10 (Carrier-grade NAT)
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    // 127.0.0.0/8 (Loopback)
+    if (a === 127) return true;
+    // 169.254.0.0/16 (Link-local & Cloud Metadata e.g. 169.254.169.254)
+    if (a === 169 && b === 254) return true;
+    // 172.16.0.0/12 (Private)
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    // 192.0.0.0/24 (IETF Protocol Assignments)
+    if (a === 192 && b === 0 && c === 0) return true;
+    // 192.0.2.0/24 (TEST-NET-1)
+    if (a === 192 && b === 0 && c === 2) return true;
+    // 192.88.99.0/24 (6to4 Relay Anycast)
+    if (a === 192 && b === 88 && c === 99) return true;
+    // 192.168.0.0/16 (Private)
+    if (a === 192 && b === 168) return true;
+    // 198.18.0.0/15 (Benchmarking)
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    // 198.51.100.0/24 (TEST-NET-2)
+    if (a === 198 && b === 51 && c === 100) return true;
+    // 203.0.113.0/24 (TEST-NET-3)
+    if (a === 203 && b === 0 && c === 113) return true;
+    // 224.0.0.0/4 (Multicast)
+    if (a >= 224 && a <= 239) return true;
+    // 240.0.0.0/4 (Reserved)
+    if (a >= 240) return true;
+    // 255.255.255.255 (Broadcast)
+    if (a === 255 && b === 255 && c === 255 && d === 255) return true;
+
+    return false;
   }
 
-  let htmlText = "";
-  let finalUrl = sourceUrl;
+  if (net.isIPv6(ip)) {
+    const normalized = ip.toLowerCase();
+    // ::1 loopback
+    if (normalized === "::1" || normalized === "0000:0000:0000:0000:0000:0000:0000:0001") return true;
+    // :: unspecified
+    if (normalized === "::" || normalized === "0000:0000:0000:0000:0000:0000:0000:0000") return true;
+    // ::ffff:127.0.0.1 etc IPv4-mapped
+    if (normalized.startsWith("::ffff:") || normalized.startsWith("0000:0000:0000:0000:0000:ffff:")) {
+      const ipv4Part = normalized.substring(normalized.lastIndexOf(":") + 1);
+      if (net.isIPv4(ipv4Part)) {
+        return isPrivateOrRestrictedIp(ipv4Part);
+      }
+    }
+    // fc00::/7 (Unique Local Address)
+    if (/^[fF][cCdD]/.test(normalized)) return true;
+    // fe80::/10 (Link-Local)
+    if (/^[fF][eE][89aAbB]/.test(normalized)) return true;
+    // fec0::/10 (Site-Local)
+    if (/^[fF][eE][c-fC-F]/.test(normalized)) return true;
+    // ff00::/8 (Multicast)
+    if (/^[fF][fF]/.test(normalized)) return true;
 
+    return false;
+  }
+
+  return false;
+}
+
+export async function validateTargetUrl(rawUrl: string): Promise<URL> {
+  let parsed: URL;
   try {
-    const response = await fetch(sourceUrl, {
-      headers: {
-        "User-Agent": "IIML-Academic-Network-Fetcher/1.0 (+https://iiml.ac.in)",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-      signal: AbortSignal.timeout(10000),
-      redirect: "follow",
-    });
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new NetworkError("Invalid URL format.", 400);
+  }
+
+  // Reject unsafe schemes: only http: and https: allowed
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new NetworkError("Invalid URL protocol. Only http:// and https:// destinations are allowed.", 400);
+  }
+
+  // Reject embedded credentials
+  if (parsed.username || parsed.password) {
+    throw new NetworkError("URLs with embedded credentials are not allowed.", 400);
+  }
+
+  // Reject non-standard/sensitive service ports
+  if (parsed.port && !["80", "443", "8080", "8443"].includes(parsed.port)) {
+    throw new NetworkError("Restricted port. Only standard HTTP/HTTPS ports are allowed.", 400);
+  }
+
+  const hostname = parsed.hostname.toLowerCase().trim();
+  if (!hostname) {
+    throw new NetworkError("URL hostname is required.", 400);
+  }
+
+  // Prohibit loopback/internal domain names
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".arpa")
+  ) {
+    throw new NetworkError("Access to local and internal destinations is prohibited.", 400);
+  }
+
+  // Check if hostname is an IP literal
+  if (net.isIP(hostname)) {
+    if (isPrivateOrRestrictedIp(hostname)) {
+      throw new NetworkError("Destination resolves to a private or restricted network address.", 400);
+    }
+  } else {
+    // Resolve DNS to verify no private/loopback IP resolution
+    try {
+      const addresses = await dns.lookup(hostname, { all: true });
+      if (!addresses || addresses.length === 0) {
+        throw new NetworkError("Destination hostname could not be resolved.", 400);
+      }
+      for (const addr of addresses) {
+        if (isPrivateOrRestrictedIp(addr.address)) {
+          throw new NetworkError("Destination hostname resolves to a private or restricted network address.", 400);
+        }
+      }
+    } catch (dnsErr) {
+      if (dnsErr instanceof NetworkError) throw dnsErr;
+      throw new NetworkError("Unable to resolve destination hostname.", 400);
+    }
+  }
+
+  return parsed;
+}
+
+export async function fetchConferenceFromUrl(urlInput: string): Promise<ExtractedConference> {
+  let currentUrl = canonicalizeUrl(urlInput.trim());
+  let redirectCount = 0;
+  const MAX_REDIRECTS = 5;
+
+  while (redirectCount <= MAX_REDIRECTS) {
+    const validated = await validateTargetUrl(currentUrl);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    let response: Response;
+    try {
+      response = await fetch(validated.href, {
+        headers: {
+          "User-Agent": "AcademicConferenceIndexer/1.0 (Educational Indexer; contact: admin@example.test)",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        signal: controller.signal,
+        redirect: "manual",
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new NetworkError("Connection timed out while fetching conference URL.", 504);
+      }
+      throw new NetworkError("Unable to connect to conference URL.", 502);
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // Manual redirect inspection for SSRF prevention
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      redirectCount++;
+      if (redirectCount > MAX_REDIRECTS) {
+        throw new NetworkError("Too many redirects.", 400);
+      }
+      const location = response.headers.get("location");
+      if (!location) {
+        throw new NetworkError("Redirect response missing Location header.", 502);
+      }
+      try {
+        currentUrl = new URL(location, validated.href).href;
+      } catch {
+        throw new NetworkError("Invalid redirect URL in Location header.", 502);
+      }
+      continue;
+    }
 
     if (!response.ok) {
       throw new NetworkError(`Failed to fetch conference web page. Server returned status ${response.status}.`, 502);
     }
 
-    finalUrl = canonicalizeUrl(response.url || sourceUrl);
-    htmlText = await response.text();
-  } catch (err) {
-    if (err instanceof NetworkError) throw err;
-    throw new NetworkError(`Unable to connect to conference URL: ${err instanceof Error ? err.message : String(err)}`, 502);
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType && !/text\/html|application\/xhtml\+xml|application\/xml|text\/plain/i.test(contentType)) {
+      throw new NetworkError("Invalid response content type. Expected HTML.", 400);
+    }
+
+    // Limit body size to 2MB
+    const MAX_BYTES = 2 * 1024 * 1024;
+    const contentLength = response.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_BYTES) {
+      throw new NetworkError("Response body exceeded size limit.", 413);
+    }
+
+    let htmlText = "";
+    if (response.body) {
+      const reader = response.body.getReader();
+      let receivedBytes = 0;
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          receivedBytes += value.length;
+          if (receivedBytes > MAX_BYTES) {
+            reader.cancel();
+            throw new NetworkError("Response body exceeded size limit.", 413);
+          }
+          chunks.push(value);
+        }
+      }
+      const totalBuffer = new Uint8Array(receivedBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        totalBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+      htmlText = new TextDecoder("utf-8").decode(totalBuffer);
+    } else {
+      htmlText = await response.text();
+    }
+
+    return parseConferenceHtml(htmlText, validated.href);
   }
 
-  return parseConferenceHtml(htmlText, finalUrl);
+  throw new NetworkError("Too many redirects.", 400);
 }
 
 export function parseConferenceHtml(htmlText: string, sourceUrl: string): ExtractedConference {

@@ -4,8 +4,12 @@ import { prisma } from "@/lib/prisma";
 
 export async function getSessionUserId(): Promise<string | null> {
   if (!getAuthConfiguration().enabled) return null;
-  const session = await getServerSession(authOptions);
-  return session?.user?.id ?? null;
+  try {
+    const session = await getServerSession(authOptions);
+    return session?.user?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getCurrentUser() {

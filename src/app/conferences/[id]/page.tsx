@@ -109,6 +109,14 @@ function getSectionIcon(title: string) {
   return <Sparkles className="w-5 h-5 text-slate-600" />;
 }
 
+function getDaysRemaining(deadline: Date | null | undefined): number | null {
+  if (!deadline) return null;
+  const target = new Date(deadline).getTime();
+  const now = new Date().getTime();
+  const diff = target - now;
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
 export default async function ConferenceDetailPage({
   params,
   searchParams,
@@ -139,12 +147,7 @@ export default async function ConferenceDetailPage({
   const isCfpOpen = conference.cfpDeadline && new Date(conference.cfpDeadline) > new Date();
   const domain = inferDomain(conference.acronym, conference.name);
   const sections = parseDescriptionSections(conference.description);
-
-  let daysRemaining: number | null = null;
-  if (conference.cfpDeadline) {
-    const diff = new Date(conference.cfpDeadline).getTime() - Date.now();
-    daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }
+  const daysRemaining = getDaysRemaining(conference.cfpDeadline);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -385,7 +388,7 @@ export default async function ConferenceDetailPage({
 
               {roster.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-500">
-                  <p>No scholars have RSVP'd yet.</p>
+                  <p>No scholars have RSVP&apos;d yet.</p>
                   <p className="mt-1 font-medium text-slate-700">Be the first from the network to signal attendance!</p>
                 </div>
               ) : (

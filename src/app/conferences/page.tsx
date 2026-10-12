@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Sparkles,
   Plus,
-  Globe,
   ChevronLeft,
   ChevronRight,
   Layers,
