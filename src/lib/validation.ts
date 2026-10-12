@@ -144,3 +144,44 @@ export function parseConferenceSuggestion(input: unknown) {
     url,
   };
 }
+
+export const ATTENDEE_ROLES = [
+  { value: "attendee", label: "General Attendee" },
+  { value: "presenter", label: "Paper Presentation" },
+  { value: "doctoral_consortium", label: "Doctoral Consortium / Colloquium" },
+  { value: "chair_discussant", label: "Session Chair / Discussant" },
+] as const;
+
+export type AttendeeRoleValue = typeof ATTENDEE_ROLES[number]["value"];
+
+export function parseAttendanceDetails(input: unknown): { role: AttendeeRoleValue; paperTitle: string | null } {
+  if (!input || typeof input !== "object") {
+    return { role: "attendee", paperTitle: null };
+  }
+
+  let rawRole: unknown;
+  let rawPaperTitle: unknown;
+
+  if (typeof (input as FormData).get === "function") {
+    const fd = input as FormData;
+    rawRole = fd.get("role");
+    rawPaperTitle = fd.get("paperTitle");
+  } else {
+    const obj = input as Record<string, unknown>;
+    rawRole = obj.role;
+    rawPaperTitle = obj.paperTitle;
+  }
+
+  const strRole = typeof rawRole === "string" ? rawRole : "attendee";
+  const validRole = ATTENDEE_ROLES.some((r) => r.value === strRole)
+    ? (strRole as AttendeeRoleValue)
+    : "attendee";
+
+  let paperTitle: string | null = null;
+  if (typeof rawPaperTitle === "string" && rawPaperTitle.trim()) {
+    const bounded = rawPaperTitle.trim().slice(0, 300);
+    paperTitle = text(bounded, "Paper / Presentation Title", 300);
+  }
+  return { role: validRole, paperTitle };
+}
+

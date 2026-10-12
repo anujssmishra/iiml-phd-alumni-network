@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { NetworkError, parseApplication, parseEmail, parseProfile, RESEARCH_DOMAINS, text } from "./validation";
+import { NetworkError, parseApplication, parseAttendanceDetails, parseEmail, parseProfile, RESEARCH_DOMAINS, text } from "./validation";
 export { NetworkError } from "./validation";
 
 type Database = Prisma.TransactionClient;
@@ -172,8 +172,14 @@ export async function listContacts(userId: string | null) {
   return { incoming: safe.filter(r => r.recipient.id === user.id), outgoing: safe.filter(r => r.sender.id === user.id) };
 }
 
-export async function setAttendance(userId: string | null, conferenceId: string, attending: boolean) {
+export async function setAttendance(
+  userId: string | null,
+  conferenceId: string,
+  attending: boolean,
+  details?: { role?: string; paperTitle?: string | null }
+) {
   if (typeof attending !== "boolean") throw new NetworkError("Invalid RSVP intent.");
+  const parsed = details ? parseAttendanceDetails(details) : { role: "attendee" as const, paperTitle: null };
   return prisma.$transaction(async db => {
     const user = await member(db, userId);
     const conf = await db.conference.findUnique({ where: { id: conferenceId } });
@@ -181,14 +187,33 @@ export async function setAttendance(userId: string | null, conferenceId: string,
     if (attending && conf.publicationState !== "published") {
       throw new NetworkError("Only published conferences accept RSVPs.", 403);
     }
-    if (attending) return db.conferenceAttendee.upsert({ where: { userId_conferenceId: { userId: user.id, conferenceId } }, create: { userId: user.id, conferenceId, status: "attending" }, update: { status: "attending" } });
+    if (attending) {
+      return db.conferenceAttendee.upsert({
+        where: { userId_conferenceId: { userId: user.id, conferenceId } },
+        create: {
+          userId: user.id,
+          conferenceId,
+          status: "attending",
+          role: parsed.role,
+          paperTitle: parsed.paperTitle,
+        },
+        update: {
+          status: "attending",
+          role: parsed.role,
+          paperTitle: parsed.paperTitle,
+        },
+      });
+    }
     await db.conferenceAttendee.deleteMany({ where: { userId: user.id, conferenceId } });
   });
 }
 
 export async function getOwnAttendance(userId: string | null, conferenceId: string) {
   const user = await member(prisma, userId);
-  return prisma.conferenceAttendee.findUnique({ where: { userId_conferenceId: { userId: user.id, conferenceId } }, select: { status: true } });
+  return prisma.conferenceAttendee.findUnique({
+    where: { userId_conferenceId: { userId: user.id, conferenceId } },
+    select: { status: true, role: true, paperTitle: true },
+  });
 }
 
 export async function getRoster(userId: string | null, conferenceId: string) {
@@ -198,5 +223,15 @@ export async function getRoster(userId: string | null, conferenceId: string) {
   if (conf.publicationState !== "published" && caller.role !== "curator" && caller.role !== "admin") {
     throw new NetworkError("Conference not found.", 404);
   }
-  return prisma.conferenceAttendee.findMany({ where: { conferenceId, user: { membershipStatus: "approved", directoryVisible: true } }, select: { userId: true, status: true, user: { select: directorySelect } }, orderBy: { createdAt: "asc" } });
+  return prisma.conferenceAttendee.findMany({
+    where: { conferenceId, user: { membershipStatus: "approved", directoryVisible: true } },
+    select: {
+      userId: true,
+      status: true,
+      role: true,
+      paperTitle: true,
+      user: { select: directorySelect },
+    },
+    orderBy: { createdAt: "asc" },
+  });
 }

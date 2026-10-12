@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, getSessionUserId } from "@/lib/session";
 import { getRoster, getOwnAttendance, NetworkError, setAttendance } from "@/lib/member-service";
+import { ATTENDEE_ROLES } from "@/lib/validation";
 import { getConferenceDetail } from "@/lib/conference-service";
 import {
   Calendar,
@@ -28,10 +29,12 @@ async function rsvpAction(form: FormData) {
   "use server";
   const id = String(form.get("conferenceId") ?? "");
   const intent = String(form.get("intent") ?? "");
+  const role = String(form.get("role") ?? "attendee");
+  const paperTitle = form.get("paperTitle") ? String(form.get("paperTitle")).trim() : null;
   let error: string | null = null;
   try {
     if (!["attend", "cancel"].includes(intent)) throw new NetworkError("Invalid RSVP intent.");
-    await setAttendance(await getSessionUserId(), id, intent === "attend");
+    await setAttendance(await getSessionUserId(), id, intent === "attend", { role, paperTitle });
   } catch (e) {
     error = e instanceof NetworkError ? e.message : "Unable to save attendance. Please try again.";
   }
@@ -79,6 +82,19 @@ function inferDomain(acronym?: string | null, name?: string): { label: string; b
     return { label: "Entrepreneurship & IB", badgeClass: "bg-rose-50 text-rose-700 border-rose-200" };
   }
   return { label: "Strategy & Management", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" };
+}
+
+function getAttendeeRoleBadge(role?: string | null) {
+  switch (role) {
+    case "presenter":
+      return { label: "Paper Presenter", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" };
+    case "doctoral_consortium":
+      return { label: "Doctoral Consortium", badgeClass: "bg-amber-50 text-amber-800 border-amber-200" };
+    case "chair_discussant":
+      return { label: "Chair / Discussant", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" };
+    default:
+      return { label: "Attending", badgeClass: "bg-slate-100 text-slate-700 border-slate-200" };
+  }
 }
 
 function parseDescriptionSections(description: string | null): { title: string; content: string }[] {
@@ -207,9 +223,19 @@ export default async function ConferenceDetailPage({
             </div>
           </div>
 
-          {/* Header Action Button */}
-          {safeUrl && (
-            <div className="shrink-0 flex items-center">
+          {/* Header Action Buttons */}
+          <div className="shrink-0 flex flex-wrap items-center gap-2">
+            <a
+              href={`/api/conferences/${id}/ics`}
+              download
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-2.5 text-xs font-semibold text-white shadow-2xs backdrop-blur-xs transition-colors"
+              title="Download iCalendar event (.ics)"
+            >
+              <Calendar className="w-3.5 h-3.5 text-blue-300" />
+              <span>Add to Calendar</span>
+            </a>
+
+            {safeUrl && (
               <a
                 href={safeUrl}
                 target="_blank"
@@ -219,8 +245,8 @@ export default async function ConferenceDetailPage({
                 <span>Official Website</span>
                 <ExternalLink className="w-4 h-4" />
               </a>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -359,19 +385,61 @@ export default async function ConferenceDetailPage({
                   )}
                 </div>
               ) : (
-                <form action={rsvpAction} className="mt-5">
+                <form action={rsvpAction} className="mt-4 space-y-3">
                   <input type="hidden" name="conferenceId" value={id} />
-                  <input type="hidden" name="intent" value={attendance ? "cancel" : "attend"} />
-                  <button
-                    type="submit"
-                    className={`w-full rounded-xl py-2.5 text-xs font-semibold transition-all shadow-xs ${
-                      attendance
-                        ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                        : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-500/20"
-                    }`}
-                  >
-                    {attendance ? "Cancel RSVP" : "Count me in"}
-                  </button>
+
+                  <div>
+                    <label htmlFor="rsvp-role" className="block text-xs font-semibold text-slate-700 mb-1">
+                      Participation Role
+                    </label>
+                    <select
+                      id="rsvp-role"
+                      name="role"
+                      defaultValue={attendance?.role || "attendee"}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="attendee">Attendee / General Participant</option>
+                      <option value="presenter">Paper Presenter</option>
+                      <option value="doctoral_consortium">Doctoral Consortium Fellow</option>
+                      <option value="chair_discussant">Session Chair / Discussant</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="rsvp-paper-title" className="block text-xs font-semibold text-slate-700 mb-1">
+                      Paper / Presentation Title <span className="text-slate-400 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="rsvp-paper-title"
+                      type="text"
+                      name="paperTitle"
+                      maxLength={300}
+                      defaultValue={attendance?.paperTitle || ""}
+                      placeholder="e.g. Asymmetric Information in Sovereign Debt"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="pt-1 space-y-2">
+                    <button
+                      type="submit"
+                      name="intent"
+                      value="attend"
+                      className="w-full rounded-xl py-2.5 text-xs font-semibold transition-all shadow-xs bg-blue-600 text-white hover:bg-blue-500 shadow-blue-500/20"
+                    >
+                      {attendance ? "Update Participation Details" : "Count me in"}
+                    </button>
+                    {attendance && (
+                      <button
+                        type="submit"
+                        name="intent"
+                        value="cancel"
+                        className="w-full rounded-xl py-2 text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
+                      >
+                        Cancel RSVP
+                      </button>
+                    )}
+                  </div>
                 </form>
               )}
               <p className="mt-2.5 text-center text-[11px] text-slate-400">
@@ -415,26 +483,42 @@ export default async function ConferenceDetailPage({
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
-                  {roster.map((row) => (
-                    <div key={row.userId} className="flex items-start gap-3 rounded-lg border border-slate-100 p-3 bg-slate-50/50">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shrink-0">
-                        {row.user.name?.charAt(0) || "S"}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <strong className="block text-xs font-bold text-slate-900 truncate">
-                          {row.user.name || "Anonymous Scholar"}
-                        </strong>
-                        <p className="text-[11px] text-slate-600 truncate mt-0.5">
-                          {row.user.current_institution || "Institution not listed"}
-                        </p>
-                        {row.user.research_domain && (
-                          <span className="inline-block mt-1 text-[10px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                            {row.user.research_domain}
-                          </span>
+                  {roster.map((row) => {
+                    const roleBadge = getAttendeeRoleBadge(row.role);
+                    return (
+                      <div key={row.userId} className="flex flex-col gap-2 rounded-lg border border-slate-100 p-3 bg-slate-50/50">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shrink-0">
+                            {row.user.name?.charAt(0) || "S"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <strong className="text-xs font-bold text-slate-900 truncate">
+                                {row.user.name || "Anonymous Scholar"}
+                              </strong>
+                              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${roleBadge.badgeClass}`}>
+                                {roleBadge.label}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 truncate mt-0.5">
+                              {row.user.current_institution || "Institution not listed"}
+                            </p>
+                            {row.user.research_domain && (
+                              <span className="inline-block mt-1 text-[10px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                {row.user.research_domain}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {row.paperTitle && (
+                          <div className="mt-1 rounded-md bg-white border border-slate-200/80 px-2.5 py-1.5 text-[11px] text-slate-800">
+                            <span className="font-semibold text-slate-400 uppercase tracking-wider text-[9px] block">Paper / Presentation</span>
+                            <span className="font-medium text-slate-900 italic">{row.paperTitle}</span>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
