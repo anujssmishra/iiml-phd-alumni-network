@@ -1,145 +1,151 @@
-# IIM PhD & FPM Alumni Network — Master Project Overview
+# IIM PhD & FPM Alumni Network — Project Overview
 
-Version: 1.1 · Updated: 11 October 2026  
-Status: P0–P1B implemented locally; final verification recorded in [implementation checks](docs/IMPLEMENTATION_CHECKS.md). No production deployment or live OAuth verification is claimed.  
-Source baseline: `3a0f40a` plus the current working changes.
+Version 1.2 · Updated 12 October 2026 · Inspected Git revision `a05f216` (`master`, matching the fetched `origin/master`).
 
-This keeps the café handoff's eight-part structure and its small-pilot, editorial, provenance, and hosting-aware approach. The reusable [planning skill](skills/community-platform-planning/SKILL.md) preserves that method. [PLAN.md](PLAN.md) separates completed local work from later phases.
+Status: P0–P1B were locally verified at the earlier `cfd165e` revision. Conference curation, richer catalogue/detail pages and ingestion now exist in the merged source, but P1C/P3 acceptance and production readiness remain open. This is a source-grounded handoff, not a claim that the current database, official conference facts, live OAuth or deployment have been verified.
 
-## 1. Executive summary and purpose
+The café reference's eight-part structure and operating discipline are retained through the [reusable planning skill](skills/community-platform-planning/SKILL.md). [PLAN.md](PLAN.md) is the execution roadmap; [implementation checks](docs/IMPLEMENTATION_CHECKS.md) separates historical runs from current findings.
 
-An independent community for IIM PhD/FPM scholars and alumni, starting with a proposed IIM Lucknow pilot. The implemented foundation supports reviewed membership, a private opt-in directory, recipient-reviewed contact introductions, and individually authenticated conference attendance.
+## 1. Purpose and current product
 
-| Café principle | Implementation or planned adaptation |
+An independent academic community for IIM PhD/FPM scholars and alumni, starting with a proposed IIM Lucknow pilot. Membership approval, consent-based discovery and conference coordination are the core. Institutional endorsement is not established.
+
+| Capability | Observed implementation |
 | --- | --- |
-| Focused, useful catalogue | Conference list/details exist; curator publication and verified provenance are P1C |
-| Source/date/reviewer evidence | Membership decisions record reviewer, method, reason and time; event provenance remains P1C |
-| Guest-first public discovery | Public conference facts; private membership, profiles, contacts and rosters |
-| Editorial independence | No paid boosts; event inclusion methodology is part of P1C/P2 |
-| Bounded pilot | Proposed 15–25 consenting members and 10–20 verified events; not recruited or populated |
-| Modest infrastructure | One Node process with persistent SQLite storage; isolated verification databases |
-| Lightweight accessible reading | Server-rendered pages, system fonts, labelled forms, keyboard focus and responsive layout |
+| Identity/membership | Google mailbox verification; pending/approved/rejected/suspended statuses; member/curator/admin roles; application/review audit; paginated admin queue |
+| Profiles/directory | Self-service controlled fields, opt-in visibility/contact, private search/filter/pagination and last-confirmed date |
+| Contact introductions | Explicit sender reply address, recipient acceptance, withdrawal/cancellation; not a messaging platform |
+| Attendance | Session-derived idempotent RSVP/cancellation and private, consent-filtered rosters |
+| Event catalogue | Published-event search, upcoming/past filters, 24-record pages, discipline presentation and rich detail sections |
+| Curation | Curator create/state/delete, suggestions/review, update service/action; manual edit UI and publication guarantees remain incomplete |
+| Ingestion | URL extraction, matching/diffs, reconciliation, CLI batch, cron endpoint and startup timers |
+| Collaboration/vault | Co-authorship, housing coordination, mentorship and document sharing remain proposed |
 
-## 2. Technical stack and deployment decision
+The next useful milestone is **hardening existing event workflows**, not building them again or expanding a nominal “verified” dataset.
 
-| Layer | Current implementation |
+## 2. Stack and hosting decision
+
+| Layer | Current source |
 | --- | --- |
-| Application | Next.js 16.4 / React 19.3 / TypeScript, App Router |
-| Runtime and dependency management | Node 24, npm and committed package-lock; explicit Webpack dev/build |
-| Database | Prisma/client 6.19.3, SQLite via `DATABASE_URL`, committed initial migration |
-| Identity | NextAuth database sessions; Google-only verified mailbox identity |
-| Authorization | Live database membership, role and ownership checks in shared services |
-| Presentation | Tailwind PostCSS plus shared CSS; no remote fonts or decorative image requests |
-| Quality | Node service tests, Playwright browser workflows, isolated production build, GitHub Actions |
+| Application | Next.js 16.4, React 19.3, TypeScript, App Router |
+| Runtime/build | Node 24, npm, committed lockfile, explicit Webpack dev/build |
+| Persistence | Prisma/client 6.19.3, SQLite, two committed migrations |
+| Identity | Google-only NextAuth database sessions; no demo-login provider |
+| Authorization | Live membership/role/ownership checks for member workflows; new quick-fetch action is a known gap |
+| Presentation | Tailwind/PostCSS, shared CSS, system fonts and Lucide icons |
+| Verification | Node tests, Playwright Chromium, isolated DB wrappers and GitHub Actions |
 
-The selected local/pilot architecture is a single persistent Node server with SQLite, documented in [HOSTING_DECISION.md](docs/HOSTING_DECISION.md). It replaces the earlier provisional PostgreSQL assumption for this milestone. An ephemeral/serverless filesystem or multiple write instances require a new database decision and migration. PHP-only shared hosting remains a separate rewrite, not the deployment target of these changes. Vendor, domain, budget and named production operator remain unassigned.
+Retain the selected single persistent Node/SQLite deployment described in [HOSTING_DECISION.md](docs/HOSTING_DECISION.md). Vendor, region, domain, budget and named operator are not established by this review. Ephemeral storage or multiple independent writers would require a new database decision; PHP-only hosting implies a separately scoped migration. No stack rewrite or infrastructure provisioning occurred.
 
-The lockfile now includes platform-specific native dependencies for Mac and Linux. Webpack is used consistently for dev, build and browser verification. The redundant Yarn lockfile was removed; it remains recoverable from Git history.
+## 3. Architecture and request flows
 
-## 3. Architecture and request lifecycle
+```text
+Browser → Next.js pages/actions
+  ├─ Published conference facts → conference-service → Prisma/SQLite
+  └─ Database session → current membership/role/consent checks
+       ├─ Profile, directory, contacts, RSVP → member-service
+       └─ Curator create/review/publish → conference-service
 
-```mermaid
-flowchart TD
-  A[Browser] --> B[Next.js request-time pages and actions]
-  B --> C[Public conference facts]
-  B --> D[Database session identity]
-  D --> E[Current membership, role and ownership checks]
-  E --> F[Profile, directory, contact and attendance services]
-  C --> G[Prisma and SQLite]
-  F --> G
-  H[Google verified identity] --> D
+Quick-fetch action → HTTP extraction → match/diff → browser reconciliation
+  Known gap: the preview action does not first check curator authorization.
+
+Node startup / cron / CLI → batch-sync → HTTP sources → direct published writes
+  Current behavior, not the desired reviewed-draft import architecture.
 ```
 
 ### Important paths
 
 ```text
 src/app/
-├── api/auth/[...nextauth]/route.ts  # Google authentication, private/no-store responses
-├── signin/                         # Config-aware sign-in
-├── membership/                     # Application and current status
-├── admin/members/                  # Administrator-only review
-├── profile/                        # Own profile, consent, withdrawal, deletion
-├── directory/                      # Private search, filters and pagination
-├── contacts/                       # Recipient-reviewed introductions
-└── conferences/                    # Public facts; authorized per-member RSVP/roster
+  api/auth/[...nextauth]/route.ts    Google auth
+  api/cron/sync-conferences/route.ts Existing mutating cron endpoint
+  signin/, membership/              Identity/application/status
+  admin/members/                    Membership review, search and pagination
+  profile/, directory/, contacts/   Private member workflows
+  conferences/                      Catalogue, details and suggestions
+  admin/conferences/                Curator UI and quick-fetch actions
+src/instrumentation.ts              Registers startup ingestion
 src/lib/
-├── auth-policy.ts                  # Verified identity, exact domains, safe callbacks
-├── auth.ts / session.ts            # Shared auth and live session-user lookup
-├── validation.ts                   # Bounded fields and controlled research/method tags
-├── member-service.ts               # Membership, ownership, consent and DB operations
-└── prisma.ts                       # Shared client; sensitive query logging disabled
-prisma/
-├── schema.prisma
-├── migrations/                     # Initial schema, constraints and indexes
-└── seed.ts                         # Explicitly guarded synthetic event only
-scripts/                            # Safe migration, isolated checks, first-admin bootstrap
-tests/                              # Service/auth tests and browser scenarios
-.github/workflows/check.yml         # Install, checks and Chromium workflows
+  auth-policy.ts, auth.ts, session.ts
+  member-service.ts, validation.ts  Membership/privacy and validation
+  conference-service.ts            Event/suggestion CRUD and visibility
+  conference-fetcher.ts            HTTP and metadata extraction
+  conference-sync.ts               Matching, diffs and reconciliation
+  batch-sync.ts, auto-scheduler.ts  Automatic imports and timers
+  prisma.ts                        Shared DB client
+prisma/schema.prisma, migrations/   Relational models and upgrade history
+prisma/seed.ts                      Guarded but destructive real-looking seed
+scripts/                           Migration, bootstrap, tests/build and sync
+tests/                             Member, event, ingestion and browser tests
+.github/workflows/check.yml         Verification workflow definition
 ```
 
-### Identity and membership
+Canonical files above are authoritative. Twenty-four untracked `* 2` copies were preserved; they are not additional supported implementations.
 
-Google's verified-mailbox claim and normalized email must match. Personal mailboxes may apply through manual review; exact academic-domain matching is only affiliation evidence. No suffix or domain automatically grants membership. Unsafe email-based account linking is disabled. LinkedIn is deferred.
+### Membership and private data
 
-A new identity is pending with a private profile. An operator can designate the first administrator only for an existing verified Google account; subsequent decisions use the admin review interface. Administrators record a method and reason. Curators cannot read application evidence or review membership.
+Google's verified identity and normalized email must match; academic domains are evidence, not automatic membership. Personal-email alumni can apply for review. Session-derived actions read current database membership rather than stale client roles. Pending/rejected/suspended users retain their own status and privacy/deletion controls but not member-directory access.
 
-Session cookies identify the actor; all member operations read current status from the database. Pending, rejected and suspended identities cannot access member features. They retain their own membership status and privacy/deletion controls.
+Directory projection excludes account email, membership evidence, OAuth accounts and sessions. Contact requests require opt-in on both sides; the recipient sees only the sender's deliberately supplied reply email after acceptance. Withdrawal/suspension closes requests and removes shared addresses. Profile affiliations remain self-reported.
 
-### Member flows
-
-Profile actions derive the owner from the session. Directory reads select only approved, explicitly visible profiles and safe fields. Email, verification evidence, OAuth accounts and sessions are excluded.
-
-Contact requests require both participants to opt in. A sender expressly supplies a reply email, hidden from the recipient until acceptance. No account email is automatically disclosed. The recipient can decline or close a request; the sender can cancel. Withdrawal or suspension cancels active requests and removes shared addresses. Messages are limited in size and senders are limited to five requests per day. This is an introduction mechanism, not private messaging.
-
-RSVP uses an explicit attendance intent, the current approved member, and a unique user/event relation. Public pages never return private counts or attendee identities. Approved members see only attendees whose directory profiles are visible. Private pages and session navigation render per request; withdrawal revalidates directory, contact and conference routes.
+RSVP uniqueness and current-user ownership are implemented. However, the RSVP service currently checks event existence rather than publication state; H4 must enforce draft/archive rules even for direct action calls. Public-roster protections from P1B must survive these event changes.
 
 ## 4. Data models and integrity
 
-| Model | Responsibility / safeguards |
+| Model | Role and current limits |
 | --- | --- |
-| User | Identity, pending/approved/rejected/suspended membership, member/curator/admin role, private evidence, self-reported profile, visibility and contact consent |
-| Account / Session / VerificationToken | OAuth identity and database sessions; cascade on account deletion |
-| MembershipReview | Reviewer/target, previous/new status and role, method, minimal reason and timestamp; target notes are redacted on deletion |
-| ContactRequest | Sender/recipient, bounded introduction, explicit reply address, pending/accepted/declined/cancelled status |
-| Conference | Existing event facts; provenance/publication model remains P1C |
-| ConferenceAttendee | User/event foreign keys, attending/considering status, unique pair |
+| User | Identity, reviewed membership/role, private evidence, profile and consent |
+| Account / Session / VerificationToken | OAuth/database sessions; account-deletion cascades |
+| MembershipReview | Reviewer/target, old/new status/role, reason/method/time; target notes redacted on deletion |
+| ContactRequest | Directed consent-based introduction with bounded message/address and active-request uniqueness |
+| Conference | Name/acronym, legacy date plus start/end, timezone/CFP, source URL/check time, curator, publication state and demo flag |
+| ConferenceSuggestion | Member submission and review status; no dedicated correction/audit record or resulting-event link |
+| ConferenceAttendee | User/event relation, attending/considering field, unique pair and cascading deletion |
 
-The migration enforces membership/role/programme/attendance/contact status sets, foreign keys, unique emails and RSVP pairs, and one active contact request per directed pair. Application validation bounds names, institutions, evidence, methods, batch years and search inputs. Methods and research domains use controlled lists.
+The foundation migration enforces member/contact status sets and foreign-key/uniqueness rules. Event publication/suggestion status, date ordering, edition identity and provenance need stronger end-to-end guarantees; a source timestamp is not proof of human review.
 
-Profile details are self-reported even when membership has been reviewed. Unknown optional values stay empty. Deleting an account removes identity, evidence, sessions, attendance and contacts; identifying target review notes are redacted and audit links are nulled. The last approved administrator must arrange a replacement first.
+The second migration uses `ALTER TABLE ... ADD COLUMN ... DEFAULT CURRENT_TIMESTAMP`; an in-memory populated-table check reproduced SQLite rejection. Empty-database migration success does not establish a safe upgrade of retained conferences. H2 requires a compatible rebuild/backfill and migration-history-aware rehearsal before applying it to existing data.
 
-## 5. Pilot dataset and editorial operations
+Deleting a member removes their identity, evidence, sessions, attendance and contacts, redacts identifying target review notes, and preserves last-admin continuity. Event deletion can also cascade attendance; seed cleanup is therefore not harmless.
 
-The seed creates one plainly labelled synthetic symposium and no identities. It requires explicit `ALLOW_DEMO_SEED=1`, `APP_ENV=local` or `test`, a SQLite file and a non-production runtime. Existing conference data is not rewritten by the seed. Real event publication requires the later P1C verification process.
+## 5. Dataset, provenance and editorial operation
 
-The pilot targets remain 10–20 verified conference editions and 15–25 consenting members. They are targets, not existing participation. Do not scrape personal profiles or silently import people.
+Source inspection counted **27 hard-coded conference editions** in `prisma/seed.ts` and **14 entries** in the batch source registry. These are code counts, not database counts, verified sources or active-community metrics. This review did not query member data or verify event facts externally.
 
-P1C will introduce official event sources, checked dates, reviewers, edition identity, timezone/deadline semantics and correction history. Automated imports will later create reviewable drafts. Do not mechanically convert journal rankings into conference rankings.
+The seed still requires `ALLOW_DEMO_SEED=1`, local/test `APP_ENV`, a SQLite URL and non-production `NODE_ENV`. Inside that guard it deletes every demo-marked event (plus the old synthetic ID/acronym), overwrites matching IDs, marks entries published/non-demo and assigns a fixed 11 October 2026 check date. The older “one/three synthetic fixtures” description is obsolete. Never use it on retained event data.
 
-## 6. Security and privacy
+Batch import directly creates/updates published records and can republish draft/archive matches. The parser substitutes future dates/duration when source dates are absent. Matching by shared organizer URL can conflate editions. CLI rechecks write check timestamps even without `--auto-update`.
 
-The original mock-identity RSVP and public-roster paths have been replaced. Server-side checks protect direct actions as well as navigation. Role/status changes are read on each operation, including already signed-in sessions.
+Desired H2/H6 behavior is different: draft candidates, explicit unknown values, edition-specific sources, fetched-versus-reviewed dates, human decisions, preserved overrides and traceable corrections. Rich descriptions, consortium agendas and travel logistics need evidence. Neither “tier-1” nor a “Verified” badge establishes quality or fact accuracy; journal rankings must not be translated into conference rankings.
 
-Consent defaults are private/off. Contact address validation rejects mailto query injection, and link addresses are encoded. Withdrawal hides profiles and cancels shared contact details; it cannot retract information a recipient already copied. Account-deletion confirmation applies only to the session owner. The last-administrator guard protects continued operation.
+The proposed pilot remains 10–20 curator-verified events and 15–25 consenting members. No recruitment or verified participation is claimed.
 
-Authentication is disabled with an explanatory message when credentials, secret or origin configuration is missing. Production sign-in requires HTTPS. No test login endpoint or bypass provider exists: browser tests create synthetic database sessions in an isolated database. Auth API responses are private/no-store. Secrets and all SQLite/journal artifacts are ignored; the broken NUL-containing ignore patterns have been repaired.
+## 6. Security, privacy and release blockers
 
-The dependency audit still reports high-severity transitive tooling/configuration advisories; see [the recorded risk](docs/HOSTING_DECISION.md). They remain a pre-pilot review item. A local test pass does not replace staging review or real-provider verification.
+The strongest inherited controls are session-derived ownership, live membership checks, private-by-default consent, safe directory projections, guarded contact disclosure and account deletion. Auth configuration fails closed when incomplete; production sign-in requires HTTPS. Browser fixtures are database sessions, not a runtime bypass.
 
-The R&R vault, document uploads, scraping, outreach and deployment remain outside this milestone.
+New event tooling has specific gaps:
 
-## 7. Setup, deployment and recovery
+- Quick-fetch preview lacks an action-level curator check and fetches arbitrary HTTP(S) destinations with automatic redirects; it can also return matched draft fields.
+- Fetching has a timeout but no demonstrated private-network/redirect destination policy or bounded body handling. Client reconciliation payloads bypass the normal event validator.
+- Cron accepts unauthenticated non-production calls when its secret is unset, accepts query-string secrets and mutates on GET.
+- Node startup schedules ingestion after ten seconds outside `NODE_ENV=test`; `APP_ENV=test` alone does not disable it. No supported off switch or cross-run lock exists.
+- Imports/seeds assign publication/check status without the required human provenance; direct RSVP does not enforce event lifecycle state.
 
-Follow [GETTING_STARTED.md](GETTING_STARTED.md) for Node/npm installation, environment configuration, initial migration, Google callback configuration, first-admin designation and verification commands.
+These are source-inspected findings, not fixes applied by this planning pass. H1–H4 define testable remediation. Earlier dependency advisories are historical unresolved risk, to be reassessed before release. Production OAuth, deployment and comprehensive accessibility/security verification remain unverified.
 
-The migration wrapper creates a missing SQLite file exclusively, never truncates an existing file, then applies committed migrations. Existing prototype databases need a protected backup and an explicit upgrade rehearsal; this initial migration does not silently reset or import them. The earlier Git stash remains preserved.
+## 7. Setup, operations and recovery
 
-Each service-test, browser-test and build invocation creates its own temporary database and overrides ambient database/auth values. Builds never depend on a real member database. CI runs the same commands; local execution does not claim remote CI has run.
+Read [GETTING_STARTED.md](GETTING_STARTED.md) before executing commands: ordinary app startup now has ingestion side effects. Use disposable data until startup/import/migration safety is repaired. Do not use a copied production member DB for experimentation.
 
-Before P2, assign operator/curator roles, provision separate staging/production volumes and OAuth clients, validate HTTPS/private cookies, fix or assess outstanding dependencies, rehearse a consistent SQLite backup/restore, and record an exact release and rollback procedure. Proposed recovery targets remain a maximum 24 hours of data loss and a four-hour restore, subject to actual hosting validation. Preserve unrelated applications on any shared account.
+The migration wrapper creates a missing SQLite file exclusively and never truncates it; the actual migration SQL still needs populated-upgrade repair. Test/build/browser wrappers override DB/auth settings and own temporary databases, but event tests and browser startup currently contact external sources. A temporary DB does not make those tests deterministic.
 
-## 8. Remaining roadmap
+Keep separate local/test/staging/production credentials and volumes. Before any retained-data migration, take a consistent SQLite backup and rehearse restoration. Recovery targets of 24 hours of data loss/four hours to restore are proposals pending operator demonstration. Preserve the earlier Git stash, duplicate local files, and sibling deployments until their owner approves cleanup.
 
-The requested implementation boundary is P1B. P1C is next: curated conference CRUD, suggestions, publication/provenance, date-aware filtering, and fuller event lifecycle rules. P2 is a controlled pilot with real OAuth/staging verification and consented recruitment. P3 adds reviewed ingestion only after curation works. P4 introduces opt-in collaboration and mentorship, with a separately designed R&R vault.
+The recorded 38-test/build and ten-browser passes belong to `cfd165e`, before the nine merged commits. No current `a05f216` full-suite/build success or remote CI success is asserted.
 
-The architecture keeps the café project's documentation and operating discipline while adapting the public/private boundary to academic membership. Hosting purchases, institutional endorsement, live OAuth, production deployment, invitations and real datasets are not implied by the local implementation.
+## 8. Next milestones
+
+[PLAN.md](PLAN.md) now orders six concrete work packages: H1 ingress/startup safety; H2 populated migration, fixtures and provenance; H3 deterministic verification; H4 conference lifecycle and UX acceptance; H5 staging/pilot; H6 controlled automation and only then demand-led collaboration.
+
+Preserve the existing stack and useful implemented flows. Do not treat this documentation update as authorization to deploy, send invitations, publish unverified data, remove local files or add advanced collaboration features.

@@ -1,38 +1,42 @@
 # IIM PhD & FPM Alumni Network
 
-A specialized, high-trust digital ecosystem designed exclusively for Fellow Programme in Management (FPM) scholars and PhD alumni of the Indian Institutes of Management (IIMs).
+An independent, community-led network for IIM PhD/FPM scholars and alumni: reviewed membership, consent-based academic discovery, and conference attendance coordination. Official institutional endorsement is not established.
 
-Current status: P0–P1B implemented locally: reviewed Google identity, membership administration, self-service profiles, a consent-based private directory, contact introductions, and session-backed attendance. Curated event publishing, ingestion, collaboration boards and document uploads remain future phases. No production deployment or live OAuth verification is claimed.
+Updated 12 October 2026; inspected `a05f216` on `master`, after merging nine GitHub commits. This is a local development project, not a verified production release.
 
-Start with [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) for the inspected architecture and café-inspired operating approach, and [PLAN.md](PLAN.md) for implementation phases and release gates. The reusable [community-platform-planning skill](skills/community-platform-planning/SKILL.md) captures the planning method.
+## Current status
 
-## The Core Problem
-Most institutional alumni portals are built around the PGP (MBA) experience—focusing heavily on corporate placements, startup fundraising, and generic batch reunions. 
+| Area | What exists | Acceptance status |
+| --- | --- | --- |
+| Foundation and membership | Node/npm setup, migrations, Google identity checks, membership review, roles and private sessions | P0–P1B previously passed local checks at `cfd165e`; merged revision needs revalidation |
+| Profiles and directory | Own-profile editing, private opt-in directory, search/filter/pagination, contact acceptance, withdrawal and deletion | Implemented; live OAuth/staging still unverified |
+| Conferences | Public catalogue and detail pages, search/date filters/pagination, private RSVP, curator create/publication/delete and member suggestions | P1C substantially implemented, but security, provenance, upgrade and correction-flow gaps remain |
+| Ingestion | URL extraction/diffs, manual reconciliation, batch import, cron endpoint and startup scheduler | P3 prototype exists early; not accepted for unattended operation |
+| Collaboration | Co-authorship board, mentorship, housing/travel coordination and R&R document vault | Future work; not implemented products |
 
-A PhD scholar's trajectory is fundamentally different. Their career currency relies on:
-1. Research co-authorships and methodological collaborations.
-2. Navigating rigorous peer reviews (Revise & Resubmit cycles) at FT50 and ABS 4/4* journals.
-3. Academic placements at premier institutes (IIMs, IITs, or global universities).
-4. Networking at major global conferences (e.g., ECIS, ICIS, AOM, InCIS).
+## Start here
 
-This project shifts the focus from mass corporate networking to high-value, closed-door academic collaboration.
+- [Next-step plan](PLAN.md): ordered hardening work, owners, dependencies and acceptance gates.
+- [Project overview](PROJECT_OVERVIEW.md): current architecture, data and public/private boundaries.
+- [Setup guide](GETTING_STARTED.md): commands and their current side effects.
+- [Verification record](docs/IMPLEMENTATION_CHECKS.md): historical passes versus current inspection findings.
+- [Hosting decision](docs/HOSTING_DECISION.md): persistent Node/SQLite baseline and operational requirements.
+- [Reusable planning skill](skills/community-platform-planning/SKILL.md): café-inspired planning method; project status stays in these documents.
 
-## Core Modules Overview
+## Important before running
 
-### 1. The "Shadow" Academic Directory
-A searchable directory mapping alumni to their current universities. Crucially, it includes an "Open to Chat" toggle, allowing early-stage scholars to privately inquire about department work culture, teaching loads, and tenure realities before accepting placement offers.
+The merged application automatically starts conference ingestion in non-test Node runtimes. The seed is **not harmless demo setup**: it deletes demo-marked events and upserts 27 hard-coded conference editions as published, non-demo records. The URL quick-fetch action also lacks its own authorization check. Do not expose this revision or run its app/seed/sync commands against retained data before the [H1–H3 safety gates](PLAN.md#h1--close-ingestion-entry-points-and-unattended-writes) are complete.
 
-### 2. The Global Conference Tracker
-A geo-tagged event board for coordinating meetups at major academic conferences. It allows current scholars to split Airbnbs, share transit, or set up informal coffee chats with alumni already established in the global academic community.
+A `sourceCheckedAt` value or “Verified” label does not prove the event dates, travel details or doctoral-consortium claims were checked against an official source. This planning pass did not verify those facts externally or inspect the live/local member database.
 
-### 3. Co-Authorship & Data-Sharing Board
-A classifieds-style forum where researchers list their methodological strengths (e.g., fsQCA, Latent Dirichlet Allocation, advanced econometrics) or proprietary datasets, and post "Looking for Collaborator" requests to fill specific research gaps.
+## Product direction
 
-### 4. Revise & Resubmit (R&R) Vault
-A highly secure, anonymized cloud repository where successful alumni donate their "Response to Reviewers" documents. This provides current scholars with invaluable structural templates for handling brutal peer reviews.
+The first useful release is a small, private academic community with a trustworthy public conference catalogue. Membership approval is separate from mailbox verification; personal-email alumni can apply. Research affiliations remain self-reported. Contact introductions reveal only an explicitly supplied reply address after acceptance.
 
-## Technical Architecture
+Later collaboration features should follow demonstrated demand and an operating owner. Dataset sharing requires contributor rights; an R&R vault requires separate permission, anonymization, storage, download-authorization and retention design. Do not describe these future capabilities as already available.
 
-The code uses Next.js App Router / React / TypeScript, Node 24/npm, Prisma with SQLite and committed migrations, and Google-only NextAuth database sessions. Mailbox verification is separate from administrator-reviewed doctoral membership. Private reads and writes check current membership, role, ownership and consent.
+## Technical baseline
 
-The selected baseline is a single persistent Node server with SQLite, documented in [the hosting decision](docs/HOSTING_DECISION.md). PostgreSQL or PHP/MySQL would require a separately tested migration. Start with [local setup](GETTING_STARTED.md); see [implementation checks](docs/IMPLEMENTATION_CHECKS.md) for verification and remaining release gates.
+Next.js 16.4 / React 19.3 / TypeScript, Node 24/npm, Prisma 6.19.3 with SQLite, Google-only NextAuth database sessions, Tailwind/PostCSS and explicit Webpack dev/build. The selected deployment is one persistent Node server with separate database volumes and secrets per environment; no vendor, domain or deployment is selected by this document.
+
+This update changes documentation and planning only. Existing local edits, duplicate backup files and the earlier Git stash are preserved.
