@@ -111,6 +111,7 @@ test("conference curation & suggestion test suite", async (t) => {
 
     // Create 1 published upcoming, 1 published past, 1 draft
     await createConference(curator.id, {
+      reviewConfirmed: true,
       name: "Upcoming Published Conf",
       acronym: "UPC 2028",
       startDate: "2028-06-01",
@@ -121,6 +122,7 @@ test("conference curation & suggestion test suite", async (t) => {
     });
 
     await createConference(curator.id, {
+      reviewConfirmed: true,
       name: "Past Published Conf",
       acronym: "PPC 2020",
       startDate: "2020-01-01",
@@ -172,6 +174,8 @@ test("conference curation & suggestion test suite", async (t) => {
 
     // Curator updates details
     await updateConference(curator.id, conf.id, {
+      reviewConfirmed: true,
+      changeReason: "Reviewed the updated synthetic source details.",
       name: "Updated Journal Symposium",
       acronym: "UJS 2027",
       startDate: "2027-05-10",
@@ -193,9 +197,10 @@ test("conference curation & suggestion test suite", async (t) => {
     const memberDetail = await getConferenceDetail(member.id, conf.id);
     assert.equal(memberDetail.publicationState, "published");
 
-    // Curator deletes conference
-    await deleteConference(curator.id, conf.id);
-    await assert.rejects(() => getConferenceDetail(curator.id, conf.id), errorStatus(404));
+    // Published/history-bearing records are archived to preserve their audit.
+    await assert.rejects(deleteConference(curator.id, conf.id), errorStatus(409));
+    await setPublicationState(curator.id, conf.id, "archived");
+    await assert.rejects(() => getConferenceDetail(member.id, conf.id), errorStatus(404));
   });
 
   await t.test("member suggestion submission and curator approval workflow", async () => {
@@ -217,19 +222,21 @@ test("conference curation & suggestion test suite", async (t) => {
 
     // Curator lists pending suggestions
     const pending = await listPendingSuggestions(curator.id);
-    assert.equal(pending.length, 1);
-    assert.equal(pending[0].id, suggestion.id);
+    assert.equal(pending.total, 1);
+    assert.equal(pending.rows[0].id, suggestion.id);
 
-    // Curator approves and publishes suggestion
+    // Curator accepts a draft, then separately reviews its facts for publication.
     const result = await reviewConferenceSuggestion(curator.id, suggestion.id, {
       status: "approved",
-      publicationState: "published",
+      publicationState: "draft",
     });
 
     assert.equal(result.suggestion.status, "approved");
     assert.ok(result.conference);
     assert.equal(result.conference.name, "European Conference on Information Systems");
-    assert.equal(result.conference.publicationState, "published");
+    assert.equal(result.conference.publicationState, "draft");
+    await assert.rejects(setPublicationState(curator.id, result.conference.id, "published"), errorStatus(400));
+    await updateConference(curator.id, result.conference.id, { ...result.conference, publicationState: "published", reviewConfirmed: true, changeReason: "Reviewed all synthetic edition facts and source." });
 
     // Member can now RSVP to created conference
     await setAttendance(member.id, result.conference.id, true);

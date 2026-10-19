@@ -106,6 +106,9 @@ test("curator can edit conference details via modal and persist updates", async 
 
   // Modify location inside modal
   await page.locator("#edit-loc-test-conf-1").fill("Hyderabad, India");
+  await page.getByRole("dialog").getByLabel("Edition-specific source URL").fill("https://example.test/arc2030/source");
+  await page.getByRole("dialog").getByLabel("Change reason *", { exact: true }).fill("Checked the synthetic source and corrected its venue.");
+  await page.getByRole("dialog").getByRole("checkbox").check();
 
   // Save changes
   await page.getByRole("button", { name: "Save Changes" }).click();

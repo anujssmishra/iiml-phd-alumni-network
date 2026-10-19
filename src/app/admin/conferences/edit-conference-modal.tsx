@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { updateConferenceAction } from "./actions";
 import { Edit2, X } from "lucide-react";
+import { zonedDateTimeInput } from "@/lib/conference-dates";
+import { ConferenceReviewFields } from "@/components/conference-review-fields";
 
 interface EditConferenceModalProps {
   conference: {
@@ -18,11 +20,20 @@ interface EditConferenceModalProps {
     url: string | null;
     sourceUrl: string | null;
     publicationState: string;
+    updatedAt: Date | string;
   };
 }
 
 export function EditConferenceModal({ conference }: EditConferenceModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = trigger.current;
+    dialog.current?.showModal();
+    return () => { previousFocus?.focus(); };
+  }, [isOpen]);
 
   const fmtDate = (d: Date | string | null | undefined) => {
     if (!d) return "";
@@ -33,12 +44,13 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
   const fmtDatetime = (d: Date | string | null | undefined) => {
     if (!d) return "";
     const dateObj = new Date(d);
-    return !isNaN(dateObj.getTime()) ? dateObj.toISOString().slice(0, 16) : "";
+    return !isNaN(dateObj.getTime()) ? zonedDateTimeInput(dateObj, conference.timezone) : "";
   };
 
   return (
     <>
       <button
+        ref={trigger}
         type="button"
         onClick={() => setIsOpen(true)}
         className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
@@ -48,8 +60,8 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <dialog ref={dialog} onCancel={() => setIsOpen(false)} aria-label="Edit Conference Details" className="m-auto w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-slate-900/60">
+          <div className="relative p-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Edit Conference Details</h3>
@@ -57,6 +69,7 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
               </div>
               <button
                 type="button"
+                aria-label="Close editor"
                 onClick={() => setIsOpen(false)}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
@@ -69,6 +82,7 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
               className="mt-5 space-y-4 text-xs"
             >
               <input type="hidden" name="conferenceId" value={conference.id} />
+              <input type="hidden" name="expectedUpdatedAt" value={new Date(conference.updatedAt).toISOString()} />
 
               <div>
                 <label htmlFor={`edit-name-${conference.id}`} className="block font-semibold text-slate-800">
@@ -215,6 +229,10 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
                 />
               </div>
 
+              <p>CFP time uses the conference timezone. During a repeated clock hour, specify its UTC offset below.</p>
+              <label>CFP UTC offset (optional)<input name="cfpUtcOffset" placeholder="-04:00" pattern="[+-][0-9]{2}:[0-9]{2}" className="ml-2 rounded border p-2" /></label>
+              <ConferenceReviewFields prefix={`edit-${conference.id}`} sourceUrl={conference.sourceUrl} />
+
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
@@ -232,7 +250,7 @@ export function EditConferenceModal({ conference }: EditConferenceModalProps) {
               </div>
             </form>
           </div>
-        </div>
+        </dialog>
       )}
     </>
   );

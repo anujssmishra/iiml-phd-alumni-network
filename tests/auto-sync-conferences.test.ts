@@ -91,11 +91,11 @@ test("automated batch ingestion & cron scheduler test suite", async (t) => {
       },
     });
     const authRes = await cronHandler(authReq);
-    assert.equal(authRes.status, 200);
+    assert.equal(authRes.status, 503);
 
     const json = await authRes.json();
-    assert.equal(json.success, true);
-    assert.ok(json.summary);
+    assert.match(json.error, /disabled/);
+    assert.equal(await prisma.conference.count(), 0);
 
     // Reset env
     delete process.env.CRON_SECRET;
@@ -111,10 +111,9 @@ test("automated batch ingestion & cron scheduler test suite", async (t) => {
     // 2. Opt-in when enabled
     process.env.ENABLE_AUTO_CONFERENCE_SYNC = "true";
     initAutoScheduler();
-    assert.equal(globalThis.__autoSchedulerInitialized, true);
+    assert.equal(globalThis.__autoSchedulerInitialized, undefined);
 
-    const summary = await runScheduledSync();
-    assert.ok(summary && summary.totalSources > 0);
+    await assert.rejects(runScheduledSync(), /disabled/);
 
     // Clean up
     stopAutoScheduler();

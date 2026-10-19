@@ -64,7 +64,7 @@ test("H4 Hardening — Conference lifecycle, RSVP boundaries & curator editing",
     );
 
     // 2. Publish the conference
-    await setPublicationState(curator.id, draftConf.id, "published");
+    await updateConference(curator.id, draftConf.id, { ...draftConf, url: "https://example.test/edition/2027", reviewConfirmed: true, changeReason: "Checked synthetic dates and edition source before publication.", publicationState: "published" });
 
     // Now RSVP must succeed
     await setAttendance(member.id, draftConf.id, true);
@@ -144,6 +144,8 @@ test("H4 Hardening — Conference lifecycle, RSVP boundaries & curator editing",
 
     // Curator updates details
     const updated = await updateConference(curator.id, conf.id, {
+      reviewConfirmed: true,
+      changeReason: "Checked the source and corrected this synthetic edition.",
       name: "Curated & Verified Name",
       acronym: "CVN 2027",
       startDate: "2027-10-05",

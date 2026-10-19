@@ -2,6 +2,7 @@ export const RESEARCH_DOMAINS = ["Information Systems", "Strategy", "Marketing",
 export const METHODS = ["Qualitative interviews", "Case studies", "Surveys", "Experiments", "Econometrics", "Causal inference", "SEM", "fsQCA", "Machine learning", "Text analysis", "Mixed methods"] as const;
 
 import { normalizeEmail } from "./auth-policy";
+import { localDeadlineToInstant } from "./conference-dates";
 
 export class NetworkError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); this.name = "NetworkError"; }
@@ -88,8 +89,11 @@ export function parseUrl(value: unknown, label: string, required = false): strin
   if (!required && (value === "" || value == null)) return null;
   const str = text(value, label, 500, required ? 10 : 0);
   if (!str) return null;
-  if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(str)) throw new NetworkError(`${label} must be a valid HTTP or HTTPS URL.`);
-  return str;
+  try {
+    const url = new URL(str);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || /\s/.test(str)) throw new Error();
+    return str;
+  } catch { throw new NetworkError(`${label} must be a valid HTTP or HTTPS URL without credentials.`); }
 }
 
 export function parseTimezone(value: unknown): string {
@@ -103,34 +107,68 @@ export function parseTimezone(value: unknown): string {
   }
 }
 
+export function parseConferenceDay(value: unknown, label: string): Date {
+  const day = value instanceof Date ? parseDate(value, label).toISOString().slice(0, 10) : value;
+  if (typeof day !== "string" || !/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(day)) throw new NetworkError(`${label} must be a calendar date.`);
+  if (day.includes("T")) parseDate(day, label);
+  const dateOnly = day.slice(0, 10);
+  const date = new Date(`${dateOnly}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dateOnly) throw new NetworkError(`${label} must be a valid calendar date.`);
+  return date;
+}
+
+export function parseConferenceDeadline(value: unknown, timezone: string): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return parseDate(value, "CFP deadline");
+  if (typeof value !== "string") throw new NetworkError("CFP deadline must include a date and time.");
+  try {
+    parseConferenceDay(value.slice(0, 10), "CFP deadline");
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return parseDate(value, "CFP deadline");
+    return localDeadlineToInstant(value, timezone);
+  } catch (error) { throw new NetworkError(error instanceof Error ? error.message : "Invalid CFP deadline."); }
+}
+
+export const CONFERENCE_REVIEW_FIELDS = ["name", "acronym", "startDate", "endDate", "timezone", "cfpDeadline", "location", "description", "url", "sourceUrl"] as const;
+
+export function parseConferenceReview(input: unknown, publicationState: string, sourceUrl: string | null, requireReason = false) {
+  const p = record(input);
+  const reason = p.changeReason ? text(p.changeReason, "Change reason", 500, 10) : requireReason ? text("", "Change reason", 500, 10) : publicationState === "published" ? "Created a source-reviewed conference." : "Created a curator draft for review.";
+  const confirmed = p.reviewConfirmed === true;
+  if (publicationState === "published" && (!confirmed || !sourceUrl)) throw new NetworkError("Publication requires an edition-specific source and confirmation that every displayed field was checked.");
+  if (confirmed && !sourceUrl) throw new NetworkError("Review requires an edition-specific source URL.");
+  return { reason, confirmed };
+}
+
 export function parseConference(input: unknown) {
   const p = record(input);
-  const startDate = parseDate(p.startDate ?? p.date, "Start date");
-  const endDate = parseDate(p.endDate ?? p.date, "End date");
+  const startDate = parseConferenceDay(p.startDate ?? p.date, "Start date");
+  const endDate = parseConferenceDay(p.endDate ?? p.date, "End date");
   if (endDate.getTime() < startDate.getTime()) throw new NetworkError("End date must be on or after start date.");
   const acronym = p.acronym ? text(p.acronym, "Acronym", 30) : null;
-  const publicationState = typeof p.publicationState === "string" && ["draft", "published", "archived"].includes(p.publicationState) ? p.publicationState : "draft";
+  const publicationState = p.publicationState ?? "draft";
+  if (typeof publicationState !== "string" || !["draft", "published", "archived"].includes(publicationState)) throw new NetworkError("Invalid publication state.");
+  const timezone = parseTimezone(p.timezone);
   return {
     name: text(p.name, "Conference name", 200, 2),
     acronym,
     date: startDate,
     startDate,
     endDate,
-    timezone: parseTimezone(p.timezone),
-    cfpDeadline: parseOptionalDate(p.cfpDeadline, "CFP deadline"),
+    timezone,
+    cfpDeadline: parseConferenceDeadline(p.cfpDeadline, timezone),
     location: text(p.location, "Location", 200, 2),
     description: p.description ? text(p.description, "Description", 2000) : null,
     url: parseUrl(p.url, "Organizer URL"),
-    sourceUrl: parseUrl(p.sourceUrl, "Source URL"),
+    sourceUrl: parseUrl(p.sourceUrl ?? p.url, "Source URL"),
     publicationState,
-    isDemo: Boolean(p.isDemo),
+    isDemo: false,
   };
 }
 
 export function parseConferenceSuggestion(input: unknown) {
   const p = record(input);
-  const startDate = parseDate(p.startDate, "Start date");
-  const endDate = parseDate(p.endDate, "End date");
+  const startDate = parseConferenceDay(p.startDate, "Start date");
+  const endDate = parseConferenceDay(p.endDate, "End date");
   if (endDate.getTime() < startDate.getTime()) throw new NetworkError("End date must be on or after start date.");
   const url = parseUrl(p.url, "Organizer URL", true);
   if (!url) throw new NetworkError("Organizer URL is required.");
@@ -139,6 +177,8 @@ export function parseConferenceSuggestion(input: unknown) {
     acronym: p.acronym ? text(p.acronym, "Acronym", 30) : null,
     startDate,
     endDate,
+    timezone: parseTimezone(p.timezone),
+    cfpDeadline: parseConferenceDeadline(p.cfpDeadline, parseTimezone(p.timezone)),
     location: text(p.location, "Location", 200, 2),
     description: p.description ? text(p.description, "Description", 2000) : null,
     url,
@@ -173,14 +213,14 @@ export function parseAttendanceDetails(input: unknown): { role: AttendeeRoleValu
   }
 
   const strRole = typeof rawRole === "string" ? rawRole : "attendee";
-  const validRole = ATTENDEE_ROLES.some((r) => r.value === strRole)
-    ? (strRole as AttendeeRoleValue)
-    : "attendee";
+  if (rawRole != null && typeof rawRole !== "string") throw new NetworkError("Choose a listed participation role.");
+  if (!ATTENDEE_ROLES.some(r => r.value === strRole)) throw new NetworkError("Choose a listed participation role.");
+  const validRole = strRole as AttendeeRoleValue;
 
   let paperTitle: string | null = null;
+  if (rawPaperTitle != null && typeof rawPaperTitle !== "string") throw new NetworkError("Paper / Presentation Title must be text.");
   if (typeof rawPaperTitle === "string" && rawPaperTitle.trim()) {
-    const bounded = rawPaperTitle.trim().slice(0, 300);
-    paperTitle = text(bounded, "Paper / Presentation Title", 300);
+    paperTitle = text(rawPaperTitle, "Paper / Presentation Title", 300);
   }
   return { role: validRole, paperTitle };
 }

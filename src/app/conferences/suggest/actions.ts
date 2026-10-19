@@ -27,6 +27,8 @@ export async function suggestConferenceAction(form: FormData) {
       location,
       description,
       url,
+      timezone: String(form.get("timezone") ?? "UTC"),
+      cfpDeadline: String(form.get("cfpDeadline") ?? "") + String(form.get("cfpUtcOffset") ?? ""),
     });
   } catch (e) {
     error = e instanceof NetworkError ? e.message : "Unable to submit suggestion. Please check your inputs.";

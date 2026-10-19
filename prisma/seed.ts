@@ -1,129 +1,46 @@
 import { PrismaClient } from "@prisma/client";
 import { existsSync } from "node:fs";
+import { requireFixtureDatabase } from "../scripts/fixture-database.mjs";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
-interface DemoConferenceFixture {
-  id: string;
-  name: string;
-  acronym: string;
-  startDate: Date;
-  endDate: Date;
-  timezone: string;
-  cfpDeadline: Date | null;
-  location: string;
-  description: string;
-  url: string;
-}
-
-const DEMO_FIXTURES: DemoConferenceFixture[] = [
-  {
-    id: "aom-2027",
-    name: "87th Annual Meeting of the Academy of Management",
-    acronym: "AOM 2027",
-    startDate: new Date("2027-08-06T00:00:00.000Z"),
-    endDate: new Date("2027-08-10T00:00:00.000Z"),
-    timezone: "America/New_York",
-    cfpDeadline: new Date("2027-01-12T17:00:00.000Z"),
-    location: "Boston, Massachusetts, USA",
-    description: "The premier global conference for management, strategy, organizational behavior, and scholarly research.",
-    url: "https://aom.org/events/annual-meeting",
-  },
-  {
-    id: "icis-2026",
-    name: "International Conference on Information Systems 2026",
-    acronym: "ICIS 2026",
-    startDate: new Date("2026-12-13T00:00:00.000Z"),
-    endDate: new Date("2026-12-16T00:00:00.000Z"),
-    timezone: "Asia/Bangkok",
-    cfpDeadline: new Date("2026-05-01T23:59:00.000Z"),
-    location: "Bangkok, Thailand",
-    description: "The flagship annual conference of the Association for Information Systems (AIS).",
-    url: "https://icis2026.aisnet.org",
-  },
-  {
-    id: "pan-iim-2026",
-    name: "11th PAN IIM World Management Conference (WMC 2026)",
-    acronym: "PAN-IIM 2026",
-    startDate: new Date("2026-11-27T00:00:00.000Z"),
-    endDate: new Date("2026-11-29T00:00:00.000Z"),
-    timezone: "Asia/Kolkata",
-    cfpDeadline: new Date("2026-08-31T23:59:00.000Z"),
-    location: "IIM Shillong, Meghalaya, India",
-    description: "Driving Sustainability and Inclusive Growth for Nation Building. The premier annual gathering hosted by the Indian Institutes of Management.",
-    url: "https://iimshillong.ac.in",
-  },
+// Deliberately fictional events: never reuse real-edition IDs or source claims.
+const DEMO_FIXTURES = [
+  { id: "fixture-event-methods-2030", name: "Demo Research Methods Workshop", acronym: "DEMO METHODS", startDate: new Date("2030-03-10T00:00:00Z"), endDate: new Date("2030-03-11T00:00:00Z"), timezone: "Asia/Kolkata" },
+  { id: "fixture-event-systems-2030", name: "Demo Information Systems Symposium", acronym: "DEMO SYSTEMS", startDate: new Date("2030-06-12T00:00:00Z"), endDate: new Date("2030-06-14T00:00:00Z"), timezone: "America/New_York" },
+  { id: "fixture-event-doctoral-2030", name: "Demo Doctoral Research Forum", acronym: "DEMO DOCTORAL", startDate: new Date("2030-09-15T00:00:00Z"), endDate: new Date("2030-09-16T00:00:00Z"), timezone: "UTC" },
 ];
 
 async function main() {
-  if (
-    process.env.ALLOW_DEMO_SEED !== "1" ||
-    !["local", "test"].includes(process.env.APP_ENV ?? "") ||
-    process.env.NODE_ENV === "production" ||
-    !process.env.DATABASE_URL?.startsWith("file:")
-  ) {
-    throw new Error("Demo seeding requires ALLOW_DEMO_SEED=1, APP_ENV=local or test, a local SQLite database, and a non-production runtime.");
-  }
+  // Validate before constructing Prisma, so a mistaken target receives no writes.
+  requireFixtureDatabase("ALLOW_DEMO_SEED");
   const prisma = new PrismaClient();
   try {
-    const checkedAt = new Date("2026-10-11T00:00:00.000Z");
-
-    // Only clean up previous demo/synthetic fixtures; never delete curator or production records.
-    await prisma.conference.deleteMany({
-      where: {
-        OR: [
-          { isDemo: true },
-          { id: "demo-research-symposium" },
-        ],
-      },
+    let created = 0;
+    await prisma.$transaction(async (tx) => {
+      for (const fixture of DEMO_FIXTURES) {
+        // An existing ID belongs to its current owner, even if demo-marked.
+        // Never delete/update it: preserve corrections, publication and RSVPs.
+        if (await tx.conference.findUnique({ where: { id: fixture.id } })) continue;
+        await tx.conference.create({ data: {
+          ...fixture,
+          date: fixture.startDate,
+          location: "Fictional test campus",
+          description: "Synthetic fixture for disposable local testing only. This is not a real event.",
+          url: `https://example.test/events/${fixture.id}`,
+          publicationState: "published",
+          isDemo: true,
+        } });
+        created++;
+      }
     });
-
-    for (const fixture of DEMO_FIXTURES) {
-      await prisma.conference.upsert({
-        where: { id: fixture.id },
-        update: {
-          name: fixture.name,
-          acronym: fixture.acronym,
-          date: fixture.startDate,
-          startDate: fixture.startDate,
-          endDate: fixture.endDate,
-          timezone: fixture.timezone,
-          cfpDeadline: fixture.cfpDeadline,
-          location: fixture.location,
-          description: fixture.description,
-          url: fixture.url,
-          sourceUrl: fixture.url,
-          sourceCheckedAt: checkedAt,
-          publicationState: "published",
-          isDemo: true,
-        },
-        create: {
-          id: fixture.id,
-          name: fixture.name,
-          acronym: fixture.acronym,
-          date: fixture.startDate,
-          startDate: fixture.startDate,
-          endDate: fixture.endDate,
-          timezone: fixture.timezone,
-          cfpDeadline: fixture.cfpDeadline,
-          location: fixture.location,
-          description: fixture.description,
-          url: fixture.url,
-          sourceUrl: fixture.url,
-          sourceCheckedAt: checkedAt,
-          publicationState: "published",
-          isDemo: true,
-        },
-      });
-    }
-
-    console.log(`Successfully seeded ${DEMO_FIXTURES.length} synthetic demo conference fixtures. No real member accounts were created.`);
+    console.log(`Created ${created} synthetic events; existing records and attendance were preserved. No identities or sessions were created.`);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main().catch((err) => {
-  console.error("Demo seed failed. Check the environment guard and database setup.", err);
+main().catch(() => {
+  console.error("Demo seed refused or failed. Use npm run db:fixtures, or its owned temporary target with ALLOW_DEMO_SEED=1, APP_ENV=local/test and NODE_ENV=development/test.");
   process.exitCode = 1;
 });

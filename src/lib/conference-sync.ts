@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { requireCurator, publicConferenceSelect } from "./conference-service";
+import { createConference, updateConference, requireCurator, publicConferenceSelect } from "./conference-service";
 export { publicConferenceSelect };
 import { ExtractedConference } from "./conference-fetcher";
 import { NetworkError, parseConference } from "./validation";
@@ -151,8 +151,8 @@ export function computeConferenceDiff(
     });
   }
 
-  const existingCfp = fmtDate(existing.cfpDeadline);
-  const extractedCfp = fmtDate(extracted.cfpDeadline);
+  const existingCfp = existing.cfpDeadline?.toISOString() ?? null;
+  const extractedCfp = extracted.cfpDeadline?.toISOString() ?? null;
   if (existingCfp !== extractedCfp) {
     items.push({
       field: "cfpDeadline",
@@ -205,83 +205,17 @@ export function computeConferenceDiff(
 export type ReconcileAction = "create_draft" | "create_published" | "update_existing";
 
 export async function reconcileConferenceSync(
-  userId: string | null,
-  action: ReconcileAction,
-  extracted: ExtractedConference,
-  targetConferenceId?: string
+  userId: string | null, action: ReconcileAction, extracted: ExtractedConference, targetConferenceId?: string
 ) {
-  const curator = await requireCurator(userId);
-
-  const allowedActions: ReconcileAction[] = ["create_draft", "create_published", "update_existing"];
-  if (!allowedActions.includes(action)) {
-    throw new NetworkError("Invalid reconciliation action choice.", 400);
-  }
-
-  // Strictly validate incoming extracted payload against parseConference schema
-  const validated = parseConference({
-    name: extracted.name,
-    acronym: extracted.acronym ?? undefined,
-    startDate: extracted.startDate instanceof Date ? extracted.startDate.toISOString().split("T")[0] : String(extracted.startDate),
-    endDate: extracted.endDate instanceof Date ? extracted.endDate.toISOString().split("T")[0] : String(extracted.endDate),
-    timezone: extracted.timezone || "UTC",
-    cfpDeadline: extracted.cfpDeadline
-      ? (extracted.cfpDeadline instanceof Date ? extracted.cfpDeadline.toISOString().split("T")[0] : String(extracted.cfpDeadline))
-      : undefined,
-    location: extracted.location,
-    description: extracted.description ?? undefined,
-    url: extracted.url,
-    sourceUrl: extracted.sourceUrl,
-    publicationState: action === "create_published" ? "published" : "draft",
-  });
-
-  if (action === "update_existing") {
-    if (!targetConferenceId) {
-      throw new NetworkError("Target conference ID is required for updating an existing record.");
-    }
-
-    const existing = await prisma.conference.findUnique({ where: { id: targetConferenceId } });
-    if (!existing) {
-      throw new NetworkError("Target conference not found.", 404);
-    }
-
-    return prisma.conference.update({
-      where: { id: targetConferenceId },
-      data: {
-        name: validated.name,
-        acronym: validated.acronym ?? existing.acronym,
-        date: validated.startDate,
-        startDate: validated.startDate,
-        endDate: validated.endDate,
-        timezone: validated.timezone,
-        cfpDeadline: validated.cfpDeadline,
-        location: validated.location,
-        description: validated.description ?? existing.description,
-        url: validated.url,
-        sourceUrl: validated.sourceUrl,
-        sourceCheckedAt: new Date(),
-        curatorId: curator.id,
-      },
-    });
-  }
-
-  const publicationState = action === "create_published" ? "published" : "draft";
-
-  return prisma.conference.create({
-    data: {
-      name: validated.name,
-      acronym: validated.acronym,
-      date: validated.startDate,
-      startDate: validated.startDate,
-      endDate: validated.endDate,
-      timezone: validated.timezone,
-      cfpDeadline: validated.cfpDeadline,
-      location: validated.location,
-      description: validated.description,
-      url: validated.url,
-      sourceUrl: validated.sourceUrl,
-      sourceCheckedAt: new Date(),
-      curatorId: curator.id,
-      publicationState,
-    },
-  });
+  await requireCurator(userId);
+  if (!["create_draft", "create_published", "update_existing"].includes(action)) throw new NetworkError("Invalid reconciliation action choice.");
+  if (action !== "create_draft" && action !== "update_existing") throw new NetworkError("Extraction may only create or correct a draft; publication requires manual review.");
+  const data = parseConference({ ...extracted, publicationState: "draft" });
+  const input = { ...data, changeReason: "Imported metadata as an unreviewed draft.", reviewConfirmed: false };
+  if (action === "create_draft") return createConference(userId, input);
+  if (!targetConferenceId) throw new NetworkError("Target conference ID is required.");
+  const existing = await prisma.conference.findUnique({ where: { id: targetConferenceId } });
+  if (!existing) throw new NetworkError("Conference not found.", 404);
+  if (existing.publicationState !== "draft" || existing.reviewedAt) throw new NetworkError("Reviewed or archived records require a manual curator correction.", 409);
+  return updateConference(userId, targetConferenceId, input);
 }

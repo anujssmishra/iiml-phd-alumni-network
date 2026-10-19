@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const production = process.env.BROWSER_SERVER_MODE === "production";
+
 export default defineConfig({
   testDir: "./tests/browser",
   fullyParallel: false,
@@ -9,10 +11,10 @@ export default defineConfig({
   reporter: "list",
   use: { baseURL: "http://127.0.0.1:3100", trace: "retain-on-failure", ...devices["Desktop Chrome"] },
   webServer: {
-    command: `"${process.execPath}" node_modules/next/dist/bin/next dev --webpack --hostname 127.0.0.1 --port 3100`,
+    command: `"${process.execPath}" node_modules/next/dist/bin/next ${production ? "start" : "dev --webpack"} --hostname 127.0.0.1 --port 3100`,
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { ...process.env, NODE_ENV: "development" },
+    env: { ...process.env, NODE_ENV: production ? "production" : "development", APP_ENV: process.env.BROWSER_APP_ENV ?? process.env.APP_ENV ?? "" },
   },
 });

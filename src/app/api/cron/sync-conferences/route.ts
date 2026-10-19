@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { syncAllConferencesBatch, isSyncInProgress } from "@/lib/batch-sync";
+import { isSyncInProgress } from "@/lib/batch-sync";
 import { NetworkError } from "@/lib/validation";
+import { denyPilotIngestion } from "@/lib/conference-ingestion-policy";
 
 function isAuthorized(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -50,15 +51,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const summary = await syncAllConferencesBatch();
-    return NextResponse.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      summary,
-    });
+    denyPilotIngestion();
   } catch (error) {
-    if (error instanceof NetworkError && error.status === 409) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+    if (error instanceof NetworkError) {
+      return NextResponse.json({ error: error.message }, { status: error.status, headers: { "Cache-Control": "no-store" } });
     }
     console.error("[Cron Sync Error]:", error);
     return NextResponse.json(

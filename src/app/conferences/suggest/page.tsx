@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { listOwnSuggestions } from "@/lib/conference-service";
 import { suggestConferenceAction } from "./actions";
+import { NetworkError } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Suggest a Conference | IIM PhD & FPM Network" };
@@ -10,7 +11,7 @@ export const metadata = { title: "Suggest a Conference | IIM PhD & FPM Network" 
 export default async function SuggestConferencePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; page?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user || user.membershipStatus !== "approved") {
@@ -18,7 +19,10 @@ export default async function SuggestConferencePage({
   }
 
   const query = await searchParams;
-  const ownSuggestions = await listOwnSuggestions(user.id);
+  let suggestionPage;
+  try { suggestionPage = await listOwnSuggestions(user.id, query.page); }
+  catch (error) { if (!(error instanceof NetworkError)) throw error; return <div className="network-shell stack"><h1>Suggest a Conference</h1><p role="alert">{error.message}</p><Link href="/conferences/suggest">Reset suggestion page</Link></div>; }
+  const ownSuggestions = suggestionPage.rows;
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-12">
@@ -141,6 +145,10 @@ export default async function SuggestConferencePage({
           />
         </div>
 
+        <div><label htmlFor="suggest-timezone">Conference timezone</label><input id="suggest-timezone" name="timezone" defaultValue="UTC" required className="w-full rounded border p-2" /></div>
+        <div><label htmlFor="suggest-cfp">CFP deadline (optional, in the conference timezone)</label><input id="suggest-cfp" name="cfpDeadline" type="datetime-local" className="w-full rounded border p-2" /></div>
+        <label>CFP UTC offset (optional, for a repeated clock hour)<input name="cfpUtcOffset" placeholder="-04:00" pattern="[+-][0-9]{2}:[0-9]{2}" className="w-full rounded border p-2" /></label>
+
         <button
           type="submit"
           className="rounded-lg bg-blue-800 px-6 py-3 font-medium text-white hover:bg-blue-900"
@@ -150,6 +158,7 @@ export default async function SuggestConferencePage({
       </form>
 
       {/* User's Previously Submitted Suggestions */}
+      <nav aria-label="Suggestion pages">Page {suggestionPage.page} of {suggestionPage.pages} · {suggestionPage.page > 1 && <Link href={`?page=${suggestionPage.page - 1}`}>Previous</Link>} {suggestionPage.page < suggestionPage.pages && <Link href={`?page=${suggestionPage.page + 1}`}>Next</Link>}</nav>
       <section className="mt-12">
         <h2 className="text-xl font-bold text-slate-900">Your Submitted Suggestions</h2>
         {ownSuggestions.length === 0 ? (

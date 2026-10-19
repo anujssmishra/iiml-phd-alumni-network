@@ -1,105 +1,125 @@
 # Local setup and verification
 
-Updated 12 October 2026 · Inspected baseline: merged `a05f216`. This guide describes current behavior and required safety gates; it does not claim a fresh post-merge application/test pass. See [PLAN.md](PLAN.md) for H1–H6 and [implementation checks](docs/IMPLEMENTATION_CHECKS.md) for evidence and limitations.
+Updated 19 October 2026 · Source baseline `b404710` plus local P2A–P2B implementation. Node 24/npm, Next.js/React, Google NextAuth database sessions, Prisma and SQLite are the supported baseline. See [PLAN.md](PLAN.md) and [implementation evidence](docs/IMPLEMENTATION_CHECKS.md).
 
-The application uses Next.js, Google sign-in, Prisma, and SQLite. Node 24 and npm are the supported development baseline. Use the committed npm lockfile; the former Yarn lockfile and optional Prisma skill-sync hook were removed. Development, production builds, and browser tests explicitly use Webpack. The lockfile contains native compiler packages for Mac and Linux.
-
-## Read before starting the application
-
-The merged application is not passive on startup. `npm run dev` and `npm run start` initialize conference ingestion, with an initial run scheduled after ten seconds and further runs every 24 hours by default. It makes external HTTP requests and writes/publishes into the configured database. There is no supported disable flag in this revision; `ALLOW_DEMO_SEED=0` and `APP_ENV=test` do not disable it. Do not use `NODE_ENV=test` as a normal application workaround.
-
-Until H1 (ingress/scheduler safety), H2 (data/provenance and populated migration), and H3 (deterministic CI) are complete, use only a disposable database for any expressly intended app experiment. Do not start this revision against retained data or expose it as a pilot. A scheduler-disabled, reviewed startup is a proposed fix, not an available command.
-
-## 1. Install and configure without starting the app
+## 1. Install and configure
 
 ```sh
 nvm install
 nvm use
 npm ci
+npm run db:generate
 ```
 
-If `.env` does not already exist, copy `.env.example` to `.env`; preserve existing local configuration. Generate a unique secret with `openssl rand -base64 48` and put it in `NEXTAUTH_SECRET`. Never commit secrets or the resulting `.env` file.
+Use the committed npm lockfile. If `.env` does not exist, copy `.env.example` to it; preserve existing configuration. Generate a unique `NEXTAUTH_SECRET` with `openssl rand -base64 48`. Never commit secrets or `.env`.
 
-Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from a Google OAuth web application. For local use, register `http://localhost:3000/api/auth/callback/google` as its redirect URI and keep `NEXTAUTH_URL=http://localhost:3000`. Use separate OAuth clients and secrets for local, staging, and production. Real OAuth behavior has not been verified by this planning pass.
+Configure a separate local Google OAuth web client. Register `http://localhost:3000/api/auth/callback/google`, with `NEXTAUTH_URL=http://localhost:3000`. Separate staging/production clients and secrets remain required. Actual Google OAuth is a staging gate.
 
-`DATABASE_URL="file:./dev.db"` resolves under `prisma/`; ensure the chosen path is new and disposable, not a retained prototype. `APP_ENV=local` identifies the environment but does not protect it from automatic ingestion. Database files, journal/WAL files, build output, and local environment files are ignored by Git. `.env.example` contains placeholders only.
+Application sign-in uses Google in every environment. Fixture profiles do not provide a login: they have no verified mailbox, OAuth account or session. The old local shortcut has been removed, and its known predictable tokens are rejected even if still stored. Browser tests create their own isolated sessions.
 
-`ACADEMIC_EMAIL_DOMAINS` is a comma-separated list of exact domains. Matching a domain is evidence for review, not doctoral/alumni membership approval. Verified Google email establishes identity; alumni without an academic mailbox can still use the reviewed membership path.
+`ACADEMIC_EMAIL_DOMAINS` contains exact comma-separated domains; matching supports review, not automatic membership. Personal-email alumni can apply.
 
-Two existing ingestion settings are absent from the current template:
+## 2. Choose a disposable local database
 
-| Setting | Current behavior and limitation |
-| --- | --- |
-| `CRON_SECRET` | Protects `/api/cron/sync-conferences` when set. The route accepts a bearer token, `x-cron-secret`, or `?secret=`; avoid query-string secrets because URLs can be logged. When unset, production denies this route but non-production allows it without authentication. It does not protect or disable the startup scheduler. |
-| `AUTO_SYNC_INTERVAL_HOURS` | `Number(value) || 24` sets the interval. Zero/invalid values fall back to 24, not off; negative/oversized values are not validated. The initial ten-second run is independent of this interval. Do not treat it as a disable switch. |
+The easiest fixture workflow creates a new target regardless of any ambient `DATABASE_URL`:
 
-H1 must define explicit opt-in, validated scheduling, and fail-closed ingress before these are deployment instructions.
+```sh
+APP_ENV=local npm run db:fixtures
+```
 
-## 2. Create only an empty disposable database
+This command refuses production/staging runtime settings. It creates an owner-restricted temporary directory with a target marker, migrates a new database, and adds three fictional demo events plus three private synthetic profiles. It prints the database path and a command to start the local app with that target and the scheduler disabled.
 
-With the disposable `DATABASE_URL` confirmed, schema validation, client generation, and empty-database migration are separate from starting the application:
+Profiles use `@example.test` addresses, include member/curator/applicant cases, and start with directory/contact sharing off. There are no admin fixtures, verified mailboxes, OAuth accounts, sessions or automatic RSVPs. Events use namespaced IDs, fictional descriptions and no claimed source-verification timestamp.
+
+The operating system may remove temporary storage. Do not use it for retained data. An ordinary empty database without fixtures can instead be created after confirming a new disposable `DATABASE_URL`:
 
 ```sh
 npm run db:validate
-npm run db:generate
 npm run db:migrate
+ENABLE_AUTO_CONFERENCE_SYNC=0 npm run dev
 ```
 
-`db:migrate` exclusively creates a missing SQLite file before `prisma migrate deploy`; it never truncates an existing file. The parent directory must exist and be writable. This file-creation safeguard does not make every migration safe for populated data.
+`DATABASE_URL="file:./dev.db"` resolves under `prisma/`; use an explicit absolute path when the target would be ambiguous. The migration wrapper creates missing files exclusively and never truncates existing ones.
 
-The conference-curation migration adds non-null dates using `DEFAULT CURRENT_TIMESTAMP`. An isolated SQLite reproduction confirmed that these `ALTER TABLE ... ADD COLUMN` statements fail when `Conference` already has rows. An empty-database pass is not upgrade evidence. H2 requires a compatible table-rebuild/backfill migration and a backed-up upgrade rehearsal that preserves events and attendance. Do not apply the current migration to retained databases, delete records to bypass the failure, or reset a database to make setup succeed. Preserve the earlier Git stash independently of database work.
+There are four migrations. The older conference migration was rewritten under an existing name; retained databases with applied/failed histories require P2C lineage rehearsal/repair. The new review migration returns non-demo published listings to draft and records their old state while preserving facts/RSVPs; they require explicit source review before republication. No retained database was migrated by this implementation. Do not reset retained data or blindly resolve migrations.
 
-After H1–H3 are complete, follow their recorded safe startup procedure, then open the local site. Google sign-in creates an individual pending account; there is no demo/shared login. Directory and member tools require membership approval. Starting now remains a deliberate networked, database-mutating experiment, not the default setup step.
+## 3. Repeating fixture seeds
 
-## 3. Designate the first administrator after safe startup is available
+Both direct seed commands now validate their target **before constructing Prisma**:
 
-After the intended administrator has signed in through Google, a trusted operator with local database access runs:
+| Command | Explicit opt-in | Other required conditions |
+| --- | --- | --- |
+| `npm run db:seed` | `ALLOW_DEMO_SEED=1` | APP_ENV local/test; NODE_ENV development/test; absolute DATABASE_URL and matching FIXTURE_DATABASE_DIR created by db:fixtures/the test harness |
+| `npm run db:seed:dev` | `ALLOW_DEV_SEED=1` | The same environment, ownership, marker and target checks |
+
+The provisioning output identifies the directory and database URL to reuse. A relative path, arbitrary retained target, missing marker, linked database or production/staging environment fails. Leave both opt-ins at zero in normal configuration.
+
+Repeats add only missing fixtures. Existing event IDs, user IDs and user-email collisions are skipped without updating/deleting records. Curator changes, membership/roles/consent, stored sessions and RSVPs are preserved. No seed creates or prints a session token. No old development accounts/sessions were removed by the implementation; inventory any previous shared-environment use before deployment.
+
+## 4. First administrator
+
+After the intended administrator signs in through Google against the intended environment, an authorized operator runs:
 
 ```sh
 npm run admin:bootstrap -- --email your-verified-sign-in-address@example.org
 ```
 
-This requires a pre-existing verified Google account and an authorized operator decision. It audits the initial membership decision, refuses when an approved administrator already exists, and cannot override rejection/suspension. It does not create an account or provide an HTTP login route. Subsequent membership decisions use the administrator interface with reviewer, method, date, and concise reason. Avoid documents or unnecessary personal details in review evidence.
+This needs a pre-existing verified Google account, audits the decision, refuses if an approved administrator exists, and cannot override rejection/suspension. It creates no identity or login route. Subsequent reviews use the administrator interface.
 
-## 4. Seed and sync commands are not safe fixture setup
+## 5. Manual curator workflow
 
-Do not run the current `db:seed` command against retained data. Its environment guard still requires `ALLOW_DEMO_SEED=1`, `APP_ENV=local` or `test`, a SQLite file URL, and a non-production runtime. Inside that guard it:
+An approved curator/admin can use the curator workspace:
 
-- Deletes the legacy symposium ID/acronym and every record marked `isDemo=true`.
-- Upserts 27 hard-coded, real-looking conference records, overwriting matching IDs.
-- Marks records `published` and `isDemo=false`, and assigns a fixed 11 October 2026 source-check timestamp.
+1. Create a draft or accept a member suggestion as a draft. Suggestions retain venue timezone and timed CFP information.
+2. Enter an edition-specific source URL and change reason. Check every displayed fact, including any stated absence of deadline/details, and explicitly confirm the review.
+3. Publish only after review. Reviewer/time/checked fields are recorded server-side; a URL or fetched timestamp alone does not establish review.
+4. Correct facts in Edit. Reconfirm the whole record to keep it published, or save as a draft without confirmation; unconfirmed edits clear prior review. A stale form must be reopened.
+5. Use History / restore to inspect field changes and restore a previous version as an unreviewed draft. Attendance is retained. Archive published/history-bearing events; hard deletion is limited to unused unreviewed drafts.
 
-Those labels and timestamps are not evidence of official-source verification. No user identities are created, but event data and related attendance may be affected by deletion. H2 separates reversible synthetic fixtures from reviewed event imports; until then, skip this command except in a disposable test specifically assessing its behavior.
+Conference start/end fields are calendar dates, not midnight instants converted into the venue timezone. CFP inputs represent a local clock time in the selected timezone. Invalid/nonexistent/repeated local times are rejected; an optional UTC offset disambiguates a repeated hour. Edits show the deadline in that timezone.
 
-The merged sync commands also mutate data:
+Approved members can use My RSVPs to cancel after archive; the page masks unpublished event details and shows only their own participation. The RSVP form explains directory-consent visibility for role/title. Public ICS contains event facts only and is not cached; a downloaded calendar copy remains the user's own file.
 
-| Entry point | Current side effect |
+## 6. Ingestion remains disabled during P2
+
+`ENABLE_AUTO_CONFERENCE_SYNC=0` stays in the template for compatibility. Setting it to `true`/`1` does **not** re-enable runtime fetching or timers during this phase.
+
+| Setting/entry point | Current behavior |
 | --- | --- |
-| `npm run sync:conferences` | Fetches existing sources and writes `sourceCheckedAt` even without `--auto-update`; it is not a dry run. With `--auto-update`, also overwrites extracted event fields. |
-| `npm run sync:auto-conferences` | Fetches the 14-source registry and automatically creates/updates/publishes matched records. |
-| `/api/cron/sync-conferences` | GET and POST both execute the mutating batch under the authorization behavior above. |
-| Application startup/timer | Executes the same batch without a curator action or cron request. |
+| `CRON_SECRET` | Missing/blank rejects all environments. Valid header authorization reaches a P2 refusal (503); GET remains 405. Do not put secrets in URLs. |
+| `AUTO_SYNC_INTERVAL_HOURS` | Inactive; no scheduled ingestion runs during P2. |
+| `import:catalogue` | Adds absent candidates as unreviewed drafts with no fabricated check time; skips all existing IDs. `--publish` fails before database writes. |
+| `sync:conferences`, including `--auto-update` | Refuses before database/network activity. |
+| `sync:auto-conferences` / URL quick-fetch / cron / scheduler | Runtime execution refuses; authenticated curators enter source facts manually. |
 
-Do not use these to verify data by assumption. H1 secures execution; H2 establishes source/reviewer provenance; H6 reintroduces controlled automation after the earlier gates pass.
+The batch prototype is tested only with injected deterministic fixtures in the test runtime. Real HTTP transport was removed; it needs separate P3 implementation and review. Full verification-process network isolation remains a P2C acceptance item.
 
-## 5. Verification status and intended workflow
+## 7. Verification
 
-The previous 38-test, ten-browser-workflow, and production-build results were recorded before the merged baseline. They must not be reported as a fresh pass for `a05f216`. Source inspection also finds a seed assertion still expecting three records while the seed now declares 27.
-
-`npm test`, `npm run build`, and `npm run test:e2e` use a unique temporary SQLite database, override ambient database/auth settings, and remove only their own database directory. This protects retained member data, but it does not isolate network side effects. Ingestion tests make live HTTP requests; the browser harness uses `NODE_ENV=development`, and builds use `production`, both outside the scheduler's unit-test guard. Browser sessions are synthetic database fixtures, not a runtime authentication bypass.
-
-After H1–H3 repair those contracts, the intended verification sequence remains:
+Run isolated checks with Node 24:
 
 ```sh
 npm run check
 npx playwright install chromium
-npm run test:e2e
+BROWSER_APP_ENV=local npm run test:e2e
 ```
 
-`check` generates Prisma, lints, generates route types/typechecks, runs tests, and builds for production. GitHub Actions configures the same sequence and Chromium. A configured workflow is not proof the merged revision passed remote CI. H3 must record the exact revision, offline fixture results, populated migration results, and any separately authorized live-source checks. No full application suite was run for this documentation update.
+The wrapper creates a unique marked database, supplies synthetic auth settings, disables fixture opt-ins and scheduler, and removes only its owned directory. Tests can explicitly enable fixtures inside that isolated target. Full denial of source-network access remains a P2C check; fixture-driven ingestion logs are not proof of live-source verification.
 
-## Deployment baseline and remaining gates
+The browser harness defaults to a development server. After `npm run build`, these focused production regressions exercise sign-in and the P2B workflows:
 
-Retain one Node 24 server with persistent SQLite storage; see [the hosting decision](docs/HOSTING_DECISION.md). Staging and production need distinct absolute database paths, `APP_ENV`, OAuth clients, HTTPS origins, and secrets. Keep database storage outside ephemeral release directories.
+```sh
+BROWSER_SERVER_MODE=production BROWSER_APP_ENV=local npm run test:e2e -- tests/browser/signin.spec.ts tests/browser/p2b.spec.ts
+```
 
-`npm run start` is the normal Next.js server command; `output: "standalone"` also emits a standalone artifact. Neither is safe deployment approval while automatic ingestion and populated migrations remain unresolved. H4 accepts event lifecycle/public UX, H5 verifies real OAuth, HTTPS/private cookies, access controls, backup restore and rollback on staging, and H6 gates controlled automation. Hosting, invitations, production imports, and deployment require their own authorization; this guide performs none.
+For production-mode test configuration only, the harness supplies an HTTPS authentication origin while serving loopback HTTP; this exercises compiled application workflows, not deployed TLS or a live Google callback. Calendar exports also round-trip through the independent ICAL.js test parser; no external calendar account was modified.
+
+Duplicate generated files ending in ` 2.ts` under `.next/` are excluded from TypeScript checks; canonical generated declarations remain checked and all copies are preserved.
+
+See the evidence ledger for actual local results. Remote CI for a release SHA, real OAuth, source facts and deployment are separate evidence.
+
+## 8. Recovery and deployment gates
+
+`db:backup` uses SQLite VACUUM INTO and integrity checking. `db:restore` does not yet establish writer exclusion or a WAL-consistent safety snapshot before replacement. P2C must prove offline maintenance, atomic replacement, rollback and path handling before retained-data use.
+
+Retain one persistent Node server, separate absolute DB paths/secrets/OAuth clients/HTTPS origins, protected off-volume backups and storage outside release directories. See [hosting](docs/HOSTING_DECISION.md). P2D verifies real OAuth/HTTPS/session behavior and timed recovery; P2E requires reviewed events and authorized invitations.

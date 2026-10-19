@@ -1,109 +1,54 @@
 export interface ICalEventInput {
-  id: string;
-  name: string;
-  acronym?: string | null;
-  startDate: Date;
-  endDate: Date;
-  timezone?: string;
-  location: string;
-  description?: string | null;
-  url?: string | null;
-  cfpDeadline?: Date | null;
+  id: string; name: string; acronym?: string | null; startDate: Date; endDate: Date;
+  timezone?: string; location: string; description?: string | null; url?: string | null; cfpDeadline?: Date | null;
 }
 
-function escapeICalText(str: string): string {
-  return str
-    .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n");
+function escapeText(value: string): string {
+  return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/\\/g, "\\\\").replace(/\r\n|\r|\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,");
 }
 
-function formatDateToICalDate(d: Date): string {
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${year}${month}${day}`;
+function foldLine(value: string): string {
+  const encoder = new TextEncoder();
+  const lines: string[] = [];
+  let line = "", bytes = 0;
+  for (const character of value) {
+    const size = encoder.encode(character).length;
+    if (bytes + size > 75) { lines.push(line); line = " "; bytes = 1; }
+    line += character; bytes += size;
+  }
+  lines.push(line);
+  return lines.join("\r\n");
 }
 
-function formatDateToICalDateTime(d: Date): string {
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const hours = String(d.getUTCHours()).padStart(2, "0");
-  const minutes = String(d.getUTCMinutes()).padStart(2, "0");
-  const seconds = String(d.getUTCSeconds()).padStart(2, "0");
-  return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
-}
+function dateValue(date: Date): string { return date.toISOString().slice(0, 10).replaceAll("-", ""); }
+function instant(date: Date): string { return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z"); }
 
 export function generateConferenceICal(conf: ICalEventInput): string {
-  const now = new Date();
-  const dtstamp = formatDateToICalDateTime(now);
-
-  // Conference all-day date range:
-  // In iCalendar, DTEND is exclusive for DATE values, so add 1 day to end date
-  const startStr = formatDateToICalDate(conf.startDate);
   const nextDay = new Date(conf.endDate);
   nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const endStr = formatDateToICalDate(nextDay);
-
-  const title = conf.acronym ? `${conf.acronym} - ${conf.name}` : conf.name;
-  const safeTitle = escapeICalText(title);
-  const safeLoc = escapeICalText(conf.location);
-  const safeDesc = escapeICalText(conf.description || `Academic conference: ${conf.name}`);
-  const eventUrl = conf.url ? escapeICalText(conf.url) : "";
-
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//IIM PhD & FPM Alumni Network//EN",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `UID:conf-${conf.id}@iiml-phd-network`,
-    `DTSTAMP:${dtstamp}`,
-    `DTSTART;VALUE=DATE:${startStr}`,
-    `DTEND;VALUE=DATE:${endStr}`,
-    `SUMMARY:${safeTitle}`,
-    `LOCATION:${safeLoc}`,
-    `DESCRIPTION:${safeDesc}`,
-    ...(eventUrl ? [`URL:${eventUrl}`] : []),
-    "STATUS:CONFIRMED",
-    "TRANSP:OPAQUE",
-    "END:VEVENT",
-  ];
-
-  // Optional CFP Deadline event
-  if (conf.cfpDeadline) {
-    const cfpDate = new Date(conf.cfpDeadline);
-    const cfpStart = formatDateToICalDateTime(cfpDate);
-    // End 1 hour later
-    const cfpEndDate = new Date(cfpDate.getTime() + 60 * 60 * 1000);
-    const cfpEnd = formatDateToICalDateTime(cfpEndDate);
-    const cfpTitle = escapeICalText(`CFP Deadline: ${conf.acronym || conf.name}`);
-    const cfpDesc = escapeICalText(`Call for Papers submission deadline for ${conf.name}`);
-
-    lines.push(
-      "BEGIN:VEVENT",
-      `UID:cfp-${conf.id}@iiml-phd-network`,
-      `DTSTAMP:${dtstamp}`,
-      `DTSTART:${cfpStart}`,
-      `DTEND:${cfpEnd}`,
-      `SUMMARY:${cfpTitle}`,
-      `DESCRIPTION:${cfpDesc}`,
-      ...(eventUrl ? [`URL:${eventUrl}`] : []),
-      "STATUS:CONFIRMED",
-      "TRANSP:TRANSPARENT",
-      "BEGIN:VALARM",
-      "ACTION:DISPLAY",
-      "DESCRIPTION:Conference CFP Deadline Reminder",
-      "TRIGGER:-P7D",
-      "END:VALARM",
-      "END:VEVENT"
-    );
+  const stamp = instant(new Date());
+  const uid = encodeURIComponent(conf.id);
+  let url: string | null = null;
+  if (conf.url && !/[\r\n\u0000-\u0020]/.test(conf.url)) {
+    try { const parsed = new URL(conf.url); if (["https:", "http:"].includes(parsed.protocol) && !parsed.username && !parsed.password) url = parsed.href; } catch { /* omit unsafe URI */ }
   }
-
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//IIM PhD & FPM Alumni Network//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "BEGIN:VEVENT", `UID:conf-${uid}@iiml-phd-network`, `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${dateValue(conf.startDate)}`, `DTEND;VALUE=DATE:${dateValue(nextDay)}`,
+    `SUMMARY:${escapeText(conf.acronym ? conf.acronym + " - " + conf.name : conf.name)}`,
+    `LOCATION:${escapeText(conf.location)}`, `DESCRIPTION:${escapeText(conf.description || "Academic conference: " + conf.name)}`,
+    ...(url ? [`URL:${url}`] : []), "STATUS:CONFIRMED", "TRANSP:OPAQUE", "END:VEVENT",
+  ];
+  if (conf.cfpDeadline) lines.push(
+    "BEGIN:VEVENT", `UID:cfp-${uid}@iiml-phd-network`, `DTSTAMP:${stamp}`,
+    `DTSTART:${instant(conf.cfpDeadline)}`, `DTEND:${instant(new Date(conf.cfpDeadline.getTime() + 3_600_000))}`,
+    `SUMMARY:${escapeText("CFP Deadline: " + (conf.acronym || conf.name))}`,
+    `DESCRIPTION:${escapeText("Call for Papers submission deadline for " + conf.name)}`,
+    ...(url ? [`URL:${url}`] : []), "STATUS:CONFIRMED", "TRANSP:TRANSPARENT",
+    "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Conference CFP Deadline Reminder", "TRIGGER:-P7D", "END:VALARM", "END:VEVENT",
+  );
   lines.push("END:VCALENDAR");
-
-  return lines.join("\r\n") + "\r\n";
+  return lines.map(foldLine).join("\r\n") + "\r\n";
 }
