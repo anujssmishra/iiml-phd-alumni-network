@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, getSessionUserId } from "@/lib/session";
 import { getRoster, getOwnAttendance, NetworkError, setAttendance } from "@/lib/member-service";
-import { ATTENDEE_ROLES } from "@/lib/validation";
 import { getConferenceDetail } from "@/lib/conference-service";
 import {
   Calendar,
@@ -31,16 +30,23 @@ async function rsvpAction(form: FormData) {
   const intent = String(form.get("intent") ?? "");
   const role = String(form.get("role") ?? "attendee");
   const paperTitle = form.get("paperTitle") ? String(form.get("paperTitle")).trim() : null;
+  const actorId = await getSessionUserId();
+  let destination = `/conferences/${encodeURIComponent(id)}`;
   let error: string | null = null;
   try {
     if (!["attend", "cancel"].includes(intent)) throw new NetworkError("Invalid RSVP intent.");
-    await setAttendance(await getSessionUserId(), id, intent === "attend", { role, paperTitle });
+    await setAttendance(actorId, id, intent === "attend", { role, paperTitle });
+    if (intent === "cancel") {
+      try { await getConferenceDetail(actorId, id); }
+      catch (e) { if (e instanceof NetworkError && e.status === 404) destination = "/conferences/attendance"; else throw e; }
+    }
   } catch (e) {
     error = e instanceof NetworkError ? e.message : "Unable to save attendance. Please try again.";
   }
   revalidatePath("/conferences");
+  revalidatePath("/conferences/attendance");
   revalidatePath(`/conferences/${id}`);
-  redirect(`/conferences/${encodeURIComponent(id)}?${error ? "error=" + encodeURIComponent(error) : "saved=1"}`);
+  redirect(`${destination}?${error ? "error=" + encodeURIComponent(error) : "saved=1"}`);
 }
 
 function formatDateRange(start: Date, end: Date, timeZone = "UTC"): string {
@@ -158,7 +164,8 @@ export default async function ConferenceDetailPage({
 
   const primaryUrl = conference.url || conference.sourceUrl;
   const safeUrl = primaryUrl && /^https?:\/\//i.test(primaryUrl) ? primaryUrl : null;
-  const dateStr = formatDateRange(conference.startDate, conference.endDate, conference.timezone);
+  const safeSourceUrl = conference.sourceUrl && /^https?:\/\//i.test(conference.sourceUrl) ? conference.sourceUrl : null;
+  const dateStr = formatDateRange(conference.startDate, conference.endDate);
 
   const isCfpOpen = conference.cfpDeadline && new Date(conference.cfpDeadline) > new Date();
   const domain = inferDomain(conference.acronym, conference.name);
@@ -199,6 +206,7 @@ export default async function ConferenceDetailPage({
                   {conference.publicationState.toUpperCase()} (Curator Preview)
                 </span>
               )}
+              {conference.isDemo && <span>Synthetic demo event</span>}
             </div>
 
             {/* Conference Full Name */}
@@ -295,8 +303,8 @@ export default async function ConferenceDetailPage({
                   </h2>
                   <p className="mt-1 text-xs text-slate-600">
                     {isCfpOpen
-                      ? "Full research papers, developmental papers, teaching cases, and symposium proposals currently being accepted."
-                      : "The official deadline for this review cycle has passed. Inquiries can be sent to conference chairs."}
+                      ? "Confirm submission categories and any deadline changes with the organizer."
+                      : "The recorded deadline has passed. Check the organizer source for updates."}
                   </p>
                 </div>
 
@@ -361,7 +369,7 @@ export default async function ConferenceDetailPage({
               </div>
 
               <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-                Signal your attendance to connect with fellow IIM doctoral scholars and alumni attending this conference.
+                Your role and optional paper title are visible to approved members only while your directory profile is visible. A hidden profile can RSVP privately. Avoid submitting sensitive unpublished details.
               </p>
 
               {conference.publicationState !== "published" ? (
@@ -443,7 +451,7 @@ export default async function ConferenceDetailPage({
                 </form>
               )}
               <p className="mt-2.5 text-center text-[11px] text-slate-400">
-                Visible only to approved IIM scholars with an active directory profile.
+                Your directory visibility controls whether your participation appears in the member roster. <Link href="/profile">Manage privacy</Link> · <Link href="/conferences/attendance">My RSVPs</Link>
               </p>
             </div>
           ) : (
@@ -453,7 +461,7 @@ export default async function ConferenceDetailPage({
                 <h2 className="text-base font-bold text-slate-900">Scholar Coordination</h2>
               </div>
               <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-                Approved IIM PhD/FPM scholars can RSVP to view the attendee roster and connect with peers.
+                Approved members can RSVP and view consented attendee profiles.
               </p>
               <div className="mt-5">
                 <Link
@@ -478,8 +486,7 @@ export default async function ConferenceDetailPage({
 
               {roster.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-500">
-                  <p>No scholars have RSVP&apos;d yet.</p>
-                  <p className="mt-1 font-medium text-slate-700">Be the first from the network to signal attendance!</p>
+                  <p>No visible attendee profiles.</p>
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
@@ -525,7 +532,7 @@ export default async function ConferenceDetailPage({
           )}
 
           {/* Organizer Source & Provenance Card */}
-          {safeUrl && (
+          {safeSourceUrl && (
             <div className="rounded-xl border border-slate-200/90 bg-white p-6 shadow-2xs text-xs">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <Building2 className="w-4 h-4 text-slate-500" />
@@ -533,17 +540,17 @@ export default async function ConferenceDetailPage({
               </div>
               <div className="mt-3">
                 <a
-                  href={safeUrl}
+                  href={safeSourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-blue-700 hover:underline break-all block"
                 >
-                  {safeUrl}
+                  {safeSourceUrl}
                 </a>
-                {conference.sourceCheckedAt && (
+                {conference.reviewedAt && (
                   <p className="mt-2 text-[11px] text-slate-500">
-                    Source verified on{" "}
-                    {new Date(conference.sourceCheckedAt).toLocaleDateString("en-IN", {
+                    Curator reviewed on{" "}
+                    {new Date(conference.reviewedAt).toLocaleDateString("en-IN", {
                       timeZone: "UTC",
                       dateStyle: "medium",
                     })}

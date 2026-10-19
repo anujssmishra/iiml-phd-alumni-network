@@ -1,104 +1,107 @@
-# Delivery plan: stabilize the merged academic network
+# Delivery plan: P2 secure release candidate and closed pilot
 
-Updated 12 October 2026 · Inspected revision: `a05f216` · Status: P0–P1B previously verified locally; P1C and early P3 code now require hardening and acceptance.
+Updated 19 October 2026 · Source baseline: `b404710` plus local P2A–P2B implementation. No deployment.
 
-This plan preserves the café reference's small-pilot, human-review, provenance and hosting-aware approach. It supersedes the old assumption that conference curation/ingestion has not been implemented. Code presence, a seed record and a previous green test run are not release evidence for the merged revision.
+## Outcome and evidence
 
-## Current phase position
+The next phase is **P2: make the implemented network safe to operate, then run a small authorized pilot**. Retain Next.js/Prisma/SQLite on one persistent Node server. Follow the café-inspired approach: a bounded community, manually reviewed facts, explicit consent, and recovery evidence before automation.
 
-| Phase | Evidence | Remaining gate |
-| --- | --- | --- |
-| P0: reproducible foundation | Node 24/npm, portable lockfile, environment template, two migrations, isolated DB harness and CI exist | Fix populated-database upgrade, unsafe fixtures and network-dependent/startup behavior; revalidate current revision |
-| P1A: identity and authorization | Verified Google identity policy, reviewed membership, roles, admin audit and session-derived RSVP | Real provider flow and staging verification; extend the same action-boundary checks to new ingestion endpoints |
-| P1B: profiles and directory | Private-by-default profiles, filters/pagination, contact consent, withdrawal/deletion; ten browser workflows passed before merge | Rerun after hardening; keep private fields protected as event tooling grows |
-| P1C: curated conferences | Schema, catalogue/detail UI, date filters/pagination, curator creation/publication/deletion, suggestions and service-level updates exist | Provenance/publication guarantees, correction UI, lifecycle rules, populated migration and dedicated browser coverage |
-| P2: controlled pilot | Plan only | H1–H5 gates, named operators, actual OAuth/HTTPS/restore evidence and authorized recruitment |
-| P3: reviewed ingestion | Fetch/diff/reconcile, 14-source batch registry, cron and startup scheduler already exist | Make existing prototype safe now; enable unattended operation only after H6 acceptance |
-| P4: academic collaboration | Product direction only | Pilot demand, moderation, permissions and separate design for sensitive files |
+P0–P1B have earlier local verification. P1C now includes curator editing, archive/restore, suggestion review, publication-aware RSVP/rosters, participation roles/paper titles, and calendar export. Recent commits also add H1–H3 hardening and H5 recovery tooling. These are implemented capabilities to verify, not features to rebuild.
 
-Historical verification and current source findings are in [IMPLEMENTATION_CHECKS.md](docs/IMPLEMENTATION_CHECKS.md). Keep Next.js/Prisma/SQLite on one persistent Node server unless hosting constraints explicitly require a new decision. No infrastructure purchase, live data modification, invitations or deployment is authorized by this plan.
+The previous H1–H6 roadmap is superseded by the work below. P2A–P2B close the local development-safety and manual-workflow gates, with real ingestion disabled. H5 recovery/readiness still needs P2C–P2E acceptance; H6 becomes deferred P3 automation. Historical 62/14 counts are kept separately from current local execution in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
 
-## Ordered next steps
+## Sequence and owners
 
-Owners below are roles to assign, not named people. Work estimates are deliberately omitted until the implementer agrees on the security/data scope. Complete the observable gate before advancing.
+Owner labels are roles to assign, not people already committed. Stages are acceptance gates, not calendar promises.
 
-### H1 — Close ingestion entry points and unattended writes
+| Stage | Outcome | Dependencies | Owner roles |
+| --- | --- | --- | --- |
+| P2A | Runtime shortcut removed; guarded additive fixtures and legacy-token retirement implemented | Local validation in the evidence ledger | Implementer + security reviewer |
+| P2B | Reviewed publication/history, date/calendar correctness and private archived-RSVP cancellation implemented | Local validation in the evidence ledger | Implementer + event curator |
+| P2C | Upgrade, recovery and exact-revision verification are reproducible | P2A–B before final release run; fixture work can start earlier | Implementer + operator |
+| P2D | Isolated staging is demonstrably operable | P2C + authorized hosting/provider access | Operator + membership reviewer + curator |
+| P2E | Small consenting cohort validates usefulness | P2D + explicit launch/invitation authority | Pilot coordinator + support owner |
 
-**Priority:** release blocker · **Owner:** implementer/security reviewer · **Dependency:** none.
+Automatic scheduling stays off throughout P2. Bulk imports and direct auto-update commands are outside the pilot operating procedure. No invitations, paid provisioning, production data changes, cleanup of user files, or live deployment are authorized by this plan.
 
-1. Require current curator/admin authorization inside the quick-fetch server action before any network request or draft lookup. Keep checks at the service/action boundary, not only the admin page.
-2. Restrict server-side fetching to approved public destinations. Reject private/loopback/link-local/metadata destinations, unsafe schemes/credentials, and unsafe redirects; validate resolution/each redirect, bound redirects/body size/content type/time and request rate. Test without contacting internal services.
-3. Validate the client-supplied reconciliation payload and action enum with the same bounded event schema used by manual edits. Do not trust serialized browser extraction results.
-4. Make automatic ingestion explicitly opt-in and off by default, including local/test/build runs. Introduce a supported disable/enable contract; no such flag exists today. Avoid using `NODE_ENV=test` as a substitute for a production runtime policy.
-5. Make cron authorization fail closed in every environment, use secret headers rather than URLs, and require a deliberate mutating request. Bound intervals and add a single-run lock so app workers, cron and CLI cannot overlap.
-6. Limit error details and remove any implication of official IIM endorsement from the fetcher identity unless authorized.
+## P2A — Isolate development identity and fixtures
 
-**Acceptance:** guest/member/pending/suspended quick-fetch calls cannot fetch or inspect drafts; unsafe URL and forged-payload cases fail safely; no HTTP import or conference mutation occurs during ordinary startup/build/browser tests by default; unauthorized cron and overlapping jobs do no work. Preserve existing membership/privacy tests.
+**Implemented in the local working tree; validation recorded in the evidence ledger.** The original shortcut trusted only `APP_ENV=local`, accepted a submitted user ID and issued predictable 30-day sessions. Both original fixture paths had preservation/safeguard gaps. The requirements below now have implementation and regression coverage.
 
-### H2 — Make upgrades, fixtures and provenance safe
+1. Remove the runtime development-login shortcut from the deployable sign-in page. Preserve test convenience through isolated database-session fixtures, not a second deployed identity path. Document that ordinary application sign-in requires valid Google configuration; the current session reader still enforces that configuration.
+2. Guard any retained development seed with explicit opt-in, local/test and non-production checks, and an owned disposable database target. Use synthetic identities with non-deliverable test addresses, namespaced IDs and least privilege. Do not create or print fixed bearer tokens.
+3. Make repeated seeding additive/idempotent: no blanket demo deletion, no overwrite of non-demo collisions, and no loss of existing fixture attendance. Keep member fixtures separate from event candidate imports.
+4. Inventory any use of the prior shortcut/seed before deployment. If it affected a shared environment, obtain authority for narrowly scoped fixture-account/session removal; do not delete real accounts or unrelated sessions.
+5. Document the supported local workflow and add negative tests: production runtime with `APP_ENV=local`, staging/unset environment, arbitrary user ID, wrong/retained database target, ID collision and repeated seed with an RSVP.
 
-**Priority:** release blocker · **Owner:** implementer + event curator + operator · **Dependency:** H1 before running the app against meaningful data.
+Implemented: the sign-in page has no fixture action; the auth adapter rejects prior predictable tokens without deleting data. `db:fixtures` provisions a marked, owner-restricted temporary database. Both seeds validate the target before constructing Prisma, use fictional namespaced fixtures, skip existing ID/email collisions and create no sessions. Verification forces the scheduler off even when the parent shell enables it.
 
-1. Repair the event migration for databases containing existing conferences. SQLite rejects the current non-constant `CURRENT_TIMESTAMP` column defaults on populated tables. Inventory migration state first; use a compatible rebuild/backfill strategy and a forward repair where already-applied histories require it. Do not blindly reset a database or rewrite applied history.
-2. Rehearse empty and populated upgrades on disposable copies, preserving original event dates, IDs, attendance relations and draft/public visibility. Verify rollback/restore and migration checksums for the intended deployment history.
-3. Separate a small synthetic test fixture from a reviewed real-data import. Remove broad seed deletion/overwrites of retained records; require explicit bounded import targets and preserve curator edits. Do not simply change the test's expected count from 3 to 27.
-4. Treat the 27 hard-coded seed editions as unverified candidates until a curator checks each important field against an edition-specific official source. Dates, deadlines, consortium sessions, venues, travel/accommodation and “tier” labels all need evidence or an unknown state. No fact checking was performed by this documentation update.
-5. Separate fetched time from human-verified time/reviewer. Missing extracted dates must remain unknown/review-required; remove the current invented six-month start/three-day duration behavior from publishable records.
-6. Imports must produce drafts/proposed changes, never silently publish, republish archived records or overwrite reviewed facts. Persist review decisions, field provenance, change history and a safe revert path.
-7. Add edition-aware identity/uniqueness and matching. Shared organizer URLs (including the PACIS/AMCIS `aisnet.org` entries) must not collapse distinct conferences or years.
+**Exit evidence:** the production artifact has no development login action; fixture commands fail before writes on unsupported targets; no predictable development session is created; collision/repeat-seed tests preserve records and attendance. Existing Google/membership authorization tests remain green. Actual prior use of the shortcut/seed in retained databases has not been inventoried; that operator check remains required before deployment.
 
-**Acceptance:** upgrade tests pass with populated legacy data; safe fixtures cannot delete unrelated events; missing facts cannot acquire “verified” status; re-import is idempotent; draft/archive/manual overrides survive imports; conflicting editions enter review.
+## P2B — Finish the manually curated event contract
 
-### H3 — Restore a trustworthy verification baseline
+**Implemented locally; validation is recorded in the evidence ledger.** The following acceptance contract now has source-review/history, date/calendar, cancellation, queue and privacy implementation.
 
-**Priority:** before claiming merged readiness · **Owner:** implementer · **Dependencies:** H1–H2.
+1. Separate fetched metadata from human verification. Record edition-specific source, fields checked, reviewer and review time; require that evidence to publish. Remove invented dates and fixed “checked” timestamps from publishable facts. Unknown information stays unknown or review-required. Carry timezone/CFP values through suggestion review; verify edition-aware matching and manual overrides.
+2. Every active import path follows the draft rule: catalogue import adds absent drafts and preserves every existing ID; `--publish`, direct sync/auto-update and runtime quick-fetch application are disabled. Manual corrections record reason/source and before/after history.
+3. Keep server-side URL quick-fetch unavailable in the pilot until its transport is fully bounded. Before enabling it, bind connections to validated public addresses, validate every redirect, and apply one deadline across DNS/connect/headers/body with byte/rate limits. Cover DNS changes, IPv4-mapped IPv6, redirect chains and stalled bodies with deterministic fixtures. Keeping this feature disabled is an acceptable P2 scope reduction; manual source entry remains available.
+4. Define date-only conference days separately from timestamped deadlines. Ensure forms, stored values, displayed dates and ICS agree across Asia/America timezones and daylight-saving boundaries; interpret CFP local time in the selected event timezone. Test edit/export round trips and missing values.
+5. My RSVPs provides session-owned cancellation after archive, masking unpublished event facts and never exposing another member's attendance. Archived detail/roster access remains restricted.
+6. Validate role/paper-title inputs and explain who can see them before submission. Preserve approved-member and directory-consent filtering. ICS must contain public event facts only; test draft/archive authorization, long/Unicode/control-character text and calendar-client import. Define cache behavior so withdrawing publication cannot keep serving a previously cached public export.
+7. Add pagination or an explicit, tested operational limit to curator queues; avoid silent 200/100-record cutoffs. Verify correction/suggestion/publish/archive journeys, empty/error states, mobile and keyboard behavior. Copy must not claim fact verification, endorsement or collaboration features without evidence.
 
-1. Replace live-network unit tests with deterministic HTTP fixtures, frozen clocks and bounded responses. Test missing/malformed metadata, redirects, timeouts, partial failure, duplicate editions and repeat imports. Keep live-source checks separate and opt-in.
-2. Update seed tests to assert safety/invariants, not a marketing catalogue size. The current test expects three rows while the seed defines 27.
-3. Add populated-migration, direct-action authorization, SSRF-policy, forged-reconcile, cron-auth, scheduler-disabled and concurrency cases.
-4. Inspect the 24 untracked `* 2` files with their owner. Preserve or archive recoverably before removing approved duplicates; 23 were byte-identical at inspection, while the hosting copy differed. Do not silently delete them or the earlier Git stash.
-5. Run a fresh install in a disposable checkout, Prisma validation/generation, lint, typecheck, all offline tests, isolated production build, and browser checks. Record exact revision, commands, counts and errors. Review the dependency audit again rather than reusing old advisory totals as current.
-6. Run the same workflow in GitHub Actions and record its result. Local success is not remote CI evidence.
+Implemented scope: source/reviewer/time/checked fields and transactional revision snapshots; explicit review before publishing; reviewed changes or restores return to draft unless reconfirmed. Suggestions preserve timezone/CFP but cannot publish directly. Queue/history/own-attendance views paginate. URL fetching, sync commands, scheduled execution and authorized cron refuse during P2 even with legacy enable settings; catalogue imports are additive drafts and reject `--publish`. Missing parser dates produce a review error; offer expiry is not a CFP deadline.
 
-**Acceptance:** after dependencies and browser binaries are installed, tests/build/browser execution make no external-source requests or background imports; no ambient member DB is used; known failures cannot be masked by partial ingestion success; current-revision evidence replaces—not relabels—the historical `cfd165e` record.
+Start/end dates render as calendar days; CFP inputs convert from the selected zone, rejecting invalid/ambiguous clock times unless explicitly offset. ICS folds Unicode safely, contains public facts only and uses private/no-store on success/errors. My RSVPs masks unpublished facts and permits session-owned cancellation. Historical or attended records must be archived instead of hard-deleted.
 
-### H4 — Finish conference lifecycle and user-facing correctness
+The new forward migration records previous publication state and returns non-demo legacy publications to draft for explicit review. IDs, dates and RSVPs remain intact. This intentional visibility change must be included in P2C's retained-data rehearsal.
 
-**Priority:** finish P1C · **Owner:** implementer + curator · **Dependencies:** H1–H3.
+**Exit evidence:** a curated draft can be reviewed, published, corrected and archived with provenance/history; imports cannot overwrite reviewed facts; missing metadata cannot become invented verified facts; a member can cancel after archive; displayed and exported dates agree; no private participation fields appear in public responses. Any disabled importer/fetch path is denied server-side and documented, not merely hidden in the UI.
 
-1. Wire a manual correction/edit interface to the existing update service/action, including source/reviewer details; retain creation, suggestions, draft review and publication flows, and add explicit archive/restore controls.
-2. Define and enforce event visibility and RSVP rules at the service boundary. A member must not create an RSVP for a draft/archived event merely by submitting its ID. Decide whether cancellation remains possible after archive; protect roster reads and private curator/submitter data.
-3. Require actual publication evidence, not a nonempty URL or automatically assigned timestamp. Include timezone/date/deadline validation and carry those fields through suggestion approval. Preserve date-only calendar values across timezones; do not infer CFP deadlines from ticket-offer expiry.
-4. Paginate curator queues instead of silently capping conference/suggestion lists. Preserve filters, stable ordering and correction feedback.
-5. Check the merged catalogue/details at mobile widths and by keyboard: long names, many pages, invalid query parameters, empty/error states, past/ongoing events, timezone boundaries, expanded descriptions and focus after actions.
-6. Correct “Verified Sources,” “tier-1,” and other unsupported copy. RSVP roster access and privacy text must match actual behavior; travel/housing and co-authorship coordination are not implemented booking/messaging features.
-7. Add dedicated curator/suggestion/publish/archive/edit browser scenarios alongside the ten existing P1B workflows. Verify production-mode navigation and cache invalidation, not only the dev server.
+## P2C — Prove upgrades, recovery and release checks
 
-**Acceptance:** complete curator and member journeys pass; guests see published facts only; public copy reflects evidence; archive/correction actions remain respected after re-import; P1C is marked accepted only with recorded tests.
+**Release blocker.** A rebuilt migration and recovery scripts are present, but retained-data histories and concurrent-write recovery remain unproven.
 
-### H5 — Stage and release a controlled pilot
+1. Inventory migration lineage without changing retained data. The conference migration was rewritten in place since `2ebd685`; distinguish fresh databases, populated foundation-only databases, already-applied older SQL and failed migrations. Specify a supported forward repair/checksum reconciliation for each actual lineage. Never reset retained data or blindly mark a migration applied.
+2. Rehearse these upgrades on disposable populated fixtures, preserving IDs, legacy dates, member relations, attendance and roles/paper titles. Verify the intentional P2B downgrade of unreviewed non-demo publications to draft and its before/after audit; preserve all other publication states. Check foreign keys and rollback/restore.
+3. Make restore an offline/exclusive maintenance operation: prove writers stopped, take a consistent safety snapshot (including committed WAL state), validate distinct paths and backup integrity, replace atomically, and preserve rollback on failure. Do not treat copying an active main DB then deleting WAL/SHM as safe recovery. Handle quoted backup paths and exclude all recovery snapshots from Git.
+4. Finish test/build isolation independent of ambient settings: P2A forces scheduler off even when shell or dotenv configuration enables it; still prove source-network denial in deterministic runs. Keep live-source checks separate and opt-in. The browser harness now supports production mode for sign-in and P2B curator/cancellation/calendar flows; complete deployment-specific navigation/cache acceptance and record the candidate SHA.
+5. From a clean disposable checkout, record the exact candidate SHA, Node/npm versions, clean install, Prisma validation/generation, lint, typecheck, all offline tests, isolated production build, development/production browser runs and dependency-audit decisions. Require a successful GitHub Actions run for the same SHA; workflow existence is not success.
+6. Preserve the 24 untracked `* 2` files and earlier stash. Resolve ownership separately; do not include them in the release or delete them to achieve a clean checkout.
 
-**Owner:** operator + membership reviewer + curator + pilot coordinator · **Dependencies:** H1–H4 and explicit authority for external actions.
+**Exit evidence:** all supported migration histories and recovery failure cases pass on disposable data; zero unintended source requests/background imports occur; release record links exact-SHA local/CI results and accepted dependency risks. Record counts from actual runs, not the historical 62/14 report.
 
-1. Assign real owners, vendor/region, budget, domain and institutional-branding permissions. Retain the [persistent Node/SQLite constraints](docs/HOSTING_DECISION.md).
-2. Provision isolated staging/production storage and secrets. Verify real Google sign-in, callback errors, sessions, role changes, sign-out, deletion and HTTPS/private cookies. Provider credentials/configuration are not proof that the flow works.
-3. Publish plain-language membership, privacy/retention, contact consent, correction and support policies. Define incident handling and minimal logs.
-4. Rehearse database backup/restore and application rollback using a populated fixture. Proposed targets: at most 24 hours of data loss and four hours to restore, only accepted after demonstration.
-5. Record dependency decisions, exact release revision, current CI/browser evidence and a rollback owner. Obtain deployment approval; do not infer it from this plan.
-6. After approval, curate a proposed 10–20-event set and invite a proposed 15–25 consenting members. Invitations/importing real people require separate execution authority.
+## P2D — Isolated staging and operating sign-off
 
-**Acceptance:** all safety gates closed, real OAuth/staging/restore evidence recorded, dataset sources reviewed, owners assigned and release explicitly authorized. Two-week pilot targets—not current achievements—are ten consented profiles, five successful RSVP users, current provenance for every published event and no unresolved access-control defect.
+**Requires operator choices and explicit execution authority.**
 
-### H6 — Enable controlled automation, then evaluate collaboration
+1. Assign membership reviewer, event curator, operator/rollback owner and support/pilot coordinator. Confirm vendor/region, budget, domain and branding permission. Preserve the [persistent Node/SQLite decision](docs/HOSTING_DECISION.md); a different runtime/storage constraint requires a separate design decision.
+2. Provision separate staging/production databases, secrets and OAuth callbacks. No real member database copies in development/test; keep sibling deployments isolated. Keep scheduler disabled, cron unconfigured/disabled and unsafe CLI ingestion out of the operating runbook.
+3. Verify actual Google consent/callback behavior, HTTPS cookies, sign-out, revocation/suspension, role changes, membership review and deletion in staging. Test private responses and publication changes in the production build with real browser navigation.
+4. Approve plain-language consent, role/paper-title visibility, retention/deletion, correction, support and incident procedures. Define minimal logs and credential rotation. Mailbox verification does not establish doctoral affiliation or institutional endorsement.
+5. Demonstrate protected off-volume backups, restoration and application rollback with synthetic populated staging data. Proposed targets are at most 24 hours of data loss and four hours to restore; accept them only after a timed drill.
+6. Link the exact release SHA, migration procedure, recovery evidence, provider/browser evidence, dependency decisions and named sign-offs. Obtain deployment approval separately.
 
-**Owner:** implementer + curator/operator · **Dependencies:** safe ingestion from H1–H2 and successful pilot operation.
+**Exit evidence:** actual staging checks and timed restore/rollback recorded; owners and policies agreed; all P2A–C blockers closed; no claim of production readiness rests solely on source inspection or an automated test count.
 
-Run one bounded ingestion executor with locks, retries/backoff, rate limits, audit history, curator review and failure notifications. Separate scheduled fetching from publishing. Prove that cancellations, changed deadlines, blocked sources and partial failures preserve approved records and human overrides. Verify source access terms and actual edition feeds before enabling them; a source registry is not a validated catalogue.
+## P2E — Closed pilot and go/no-go
 
-Only then consider co-authorship posts, mentorship or opt-in matching with expiry/reporting/deletion. The R&R vault is a separate permission/anonymization/private-storage/malware/download-authorization/retention workstream. No private document upload or proprietary dataset transfer is part of this plan's execution.
+**Proposed scope:** 10–20 manually verified event editions, 15–25 consenting members, two weeks of observation. These are targets, not achieved counts.
+
+After explicit authorization, curate the event set against official edition-specific sources and invite the cohort. Do not treat the 27 catalogue candidates or 14 source-registry entries as verified data. No academic ranking or travel/logistics claim is published without an appropriate basis.
+
+Track consented visible profiles, distinct successful RSVP users, cancelled RSVPs, correction turnaround, failed access attempts and support issues without collecting unnecessary personal data. Proposed success signals: ten opt-in profiles, five distinct RSVP users, provenance for every published event, and no unresolved access-control or data-loss defect.
+
+Pause expansion on a privacy/security/recovery incident. At pilot review, either resolve blockers and repeat, continue the same bounded cohort, or approve a separately scoped expansion. Small sample counts indicate usefulness, not statistically established adoption.
+
+## Deferred: P3 automation and P4 collaboration
+
+P3 may start after a successful pilot and assigned curator capacity. Before enabling unattended execution, add a durable cross-process lease/run ledger, bounded interval/runtime, retries/backoff, rate limits, failure notifications/exit status, source-access review and auditable proposed changes. The current process-local lock and cron success response do not establish multi-process safety or partial-failure visibility. Keep fetching separate from publishing.
+
+P4 follows demonstrated demand: co-authorship posts, mentorship and opt-in matching need moderation, expiry/reporting and deletion. An R&R vault or proprietary dataset sharing needs separate permission, anonymization, private storage, malware/download controls and retention design.
 
 ## Next smallest implementation slice
 
-Implement **H1** first, with regression tests for unauthenticated quick-fetch, unsafe URL targets, forged reconciliation and disabled startup ingestion. Follow with populated-migration and fixture repair in H2, then run the complete isolated checks in H3. Do not expand the catalogue or add collaboration features before these gates.
+Proceed to **P2C**: inventory supported migration histories using disposable fixtures, make backup/restore exclusive and recoverable, and record clean release/CI/dependency evidence. Start with the recovery implementation and legacy migration-lineage rehearsal. P2A–P2B local results are in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
 
-The next implementation request can name H1 explicitly. This planning update itself modifies documentation only; it neither fixes these defects nor certifies the merged application.
+The original planning pass changed documentation only. P2A–P2B execution modifies application/fixture/curation/test code and uses disposable verification databases. Real OAuth, event fact-checking, retained-data operations, deployment and recruitment remain outstanding.

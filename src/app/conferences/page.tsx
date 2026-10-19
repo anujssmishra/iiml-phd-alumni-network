@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listPublicConferences } from "@/lib/conference-service";
 import { getCurrentUser } from "@/lib/session";
+import { NetworkError } from "@/lib/validation";
 import {
   Calendar,
   MapPin,
@@ -66,11 +67,13 @@ export default async function ConferencesPage({
   const timeframe = query.timeframe === "past" || query.timeframe === "all" ? query.timeframe : "upcoming";
   const search = query.q ?? "";
 
-  const { conferences, total, page, pageSize } = await listPublicConferences({
+  let result;
+  try { result = await listPublicConferences({
     q: search,
     timeframe,
     page: query.page,
-  });
+  }); } catch (error) { if (!(error instanceof NetworkError)) throw error; return <div className="network-shell stack"><h1>Academic Conference Calendar</h1><p role="alert">{error.message}</p><Link href="/conferences">Reset conference filters</Link></div>; }
+  const { conferences, total, page, pageSize } = result;
 
   const totalPages = Math.ceil(total / pageSize);
   const user = await getCurrentUser();
@@ -115,11 +118,11 @@ export default async function ConferencesPage({
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>Verified Sources</span>
+            <span>Curator-reviewed listings</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-            <span>Deadlines Monitored 24/7</span>
+            <span>Check organizer sources for changes</span>
           </div>
         </div>
       </div>
@@ -204,7 +207,7 @@ export default async function ConferencesPage({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {conferences.map((conf) => {
-            const dateStr = formatDateRange(conf.startDate, conf.endDate, conf.timezone);
+            const dateStr = formatDateRange(conf.startDate, conf.endDate);
             const isCfpOpen = conf.cfpDeadline && new Date(conf.cfpDeadline) > new Date();
             const domain = inferDomain(conf.acronym, conf.name);
 
@@ -236,6 +239,7 @@ export default async function ConferencesPage({
                   <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors leading-snug">
                     {conf.name}
                   </h3>
+                  {conf.isDemo && <p className="text-xs text-amber-800">Synthetic demo event</p>}
 
                   {/* Details Strip */}
                   <div className="mt-3 space-y-1.5 text-xs">

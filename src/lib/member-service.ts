@@ -179,7 +179,7 @@ export async function setAttendance(
   details?: { role?: string; paperTitle?: string | null }
 ) {
   if (typeof attending !== "boolean") throw new NetworkError("Invalid RSVP intent.");
-  const parsed = details ? parseAttendanceDetails(details) : { role: "attendee" as const, paperTitle: null };
+  const parsed = attending && details ? parseAttendanceDetails(details) : { role: "attendee" as const, paperTitle: null };
   return prisma.$transaction(async db => {
     const user = await member(db, userId);
     const conf = await db.conference.findUnique({ where: { id: conferenceId } });
@@ -214,6 +214,20 @@ export async function getOwnAttendance(userId: string | null, conferenceId: stri
     where: { userId_conferenceId: { userId: user.id, conferenceId } },
     select: { status: true, role: true, paperTitle: true },
   });
+}
+
+export async function listOwnAttendance(userId: string | null, pageInput: string | number = 1) {
+  const user = await member(prisma, userId);
+  if (!/^[1-9]\d{0,5}$/.test(String(pageInput))) throw new NetworkError("Invalid attendance page.");
+  const pageSize = 20;
+  const total = await prisma.conferenceAttendee.count({ where: { userId: user.id } });
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Number(pageInput), pages);
+  const rows = await prisma.conferenceAttendee.findMany({
+    where: { userId: user.id }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize,
+    select: { conferenceId: true, role: true, paperTitle: true, conference: { select: { name: true, publicationState: true } } },
+  });
+  return { total, page, pages, rows: rows.map(row => ({ conferenceId: row.conferenceId, role: row.role, paperTitle: row.paperTitle, published: row.conference.publicationState === "published", name: row.conference.publicationState === "published" ? row.conference.name : "Unavailable event" })) };
 }
 
 export async function getRoster(userId: string | null, conferenceId: string) {

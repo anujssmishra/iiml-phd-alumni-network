@@ -1,6 +1,7 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 import { parseConference, NetworkError } from "./validation";
+import { denyPilotIngestion } from "./conference-ingestion-policy";
 
 export interface ExtractedConference {
   name: string;
@@ -235,102 +236,8 @@ export async function validateTargetUrl(rawUrl: string): Promise<URL> {
 }
 
 export async function fetchConferenceFromUrl(urlInput: string): Promise<ExtractedConference> {
-  let currentUrl = canonicalizeUrl(urlInput.trim());
-  let redirectCount = 0;
-  const MAX_REDIRECTS = 5;
-
-  while (redirectCount <= MAX_REDIRECTS) {
-    const validated = await validateTargetUrl(currentUrl);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    let response: Response;
-    try {
-      response = await fetch(validated.href, {
-        headers: {
-          "User-Agent": "AcademicConferenceIndexer/1.0 (Educational Indexer; contact: admin@example.test)",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-        signal: controller.signal,
-        redirect: "manual",
-      });
-    } catch (err) {
-      clearTimeout(timeout);
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new NetworkError("Connection timed out while fetching conference URL.", 504);
-      }
-      throw new NetworkError("Unable to connect to conference URL.", 502);
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    // Manual redirect inspection for SSRF prevention
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      redirectCount++;
-      if (redirectCount > MAX_REDIRECTS) {
-        throw new NetworkError("Too many redirects.", 400);
-      }
-      const location = response.headers.get("location");
-      if (!location) {
-        throw new NetworkError("Redirect response missing Location header.", 502);
-      }
-      try {
-        currentUrl = new URL(location, validated.href).href;
-      } catch {
-        throw new NetworkError("Invalid redirect URL in Location header.", 502);
-      }
-      continue;
-    }
-
-    if (!response.ok) {
-      throw new NetworkError(`Failed to fetch conference web page. Server returned status ${response.status}.`, 502);
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType && !/text\/html|application\/xhtml\+xml|application\/xml|text\/plain/i.test(contentType)) {
-      throw new NetworkError("Invalid response content type. Expected HTML.", 400);
-    }
-
-    // Limit body size to 2MB
-    const MAX_BYTES = 2 * 1024 * 1024;
-    const contentLength = response.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_BYTES) {
-      throw new NetworkError("Response body exceeded size limit.", 413);
-    }
-
-    let htmlText = "";
-    if (response.body) {
-      const reader = response.body.getReader();
-      let receivedBytes = 0;
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          receivedBytes += value.length;
-          if (receivedBytes > MAX_BYTES) {
-            reader.cancel();
-            throw new NetworkError("Response body exceeded size limit.", 413);
-          }
-          chunks.push(value);
-        }
-      }
-      const totalBuffer = new Uint8Array(receivedBytes);
-      let offset = 0;
-      for (const chunk of chunks) {
-        totalBuffer.set(chunk, offset);
-        offset += chunk.length;
-      }
-      htmlText = new TextDecoder("utf-8").decode(totalBuffer);
-    } else {
-      htmlText = await response.text();
-    }
-
-    return parseConferenceHtml(htmlText, validated.href);
-  }
-
-  throw new NetworkError("Too many redirects.", 400);
+  void urlInput;
+  return denyPilotIngestion();
 }
 
 export function parseConferenceHtml(htmlText: string, sourceUrl: string): ExtractedConference {
@@ -343,7 +250,6 @@ export function parseConferenceHtml(htmlText: string, sourceUrl: string): Extrac
   let acronym: string | null = null;
   let startDate: Date | null = null;
   let endDate: Date | null = null;
-  let cfpDeadline: Date | null = null;
   let location = "";
   let description: string | null = null;
   let url = sourceUrl;
@@ -392,12 +298,7 @@ export function parseConferenceHtml(htmlText: string, sourceUrl: string): Extrac
               }
             }
 
-            if (item.offers && typeof item.offers === "object") {
-              const offers = item.offers as Record<string, unknown>;
-              if (offers.validThrough) {
-                cfpDeadline = parseFlexibleDate(String(offers.validThrough));
-              }
-            }
+            // Offer expiry is not a CFP deadline.
             break;
           }
         }
@@ -459,40 +360,11 @@ export function parseConferenceHtml(htmlText: string, sourceUrl: string): Extrac
     }
   }
 
-  // Fallback CFP Deadline extraction via regex
-  if (!cfpDeadline) {
-    const cfpMatch = htmlText.match(/(?:call\s+for\s+papers|cfp|paper\s+submission)\s+(?:deadline|due)[:\s]+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{4}-\d{2}-\d{2})/i);
-    if (cfpMatch) {
-      cfpDeadline = parseFlexibleDate(cfpMatch[1]);
-    }
-  }
-
-  // Defaults if parsing is incomplete
-  if (!name) {
-    name = "Untitled Academic Conference";
-  }
-
-  if (!startDate) {
-    // Default to 6 months in future if not detected
-    const future = new Date();
-    future.setMonth(future.getMonth() + 6);
-    startDate = future;
-  }
-
-  if (!endDate) {
-    // Default end date to 3 days after start date
-    const end = new Date(startDate.getTime());
-    end.setDate(end.getDate() + 3);
-    endDate = end;
-  }
-
-  if (endDate < startDate) {
-    endDate = new Date(startDate.getTime());
-  }
-
-  if (!location) {
-    location = "Virtual / To Be Announced";
-  }
+  // Missing source facts require human review; never invent event dates,
+  // durations, a virtual venue, or a deadline from a ticket offer.
+  if (!name || !startDate || !endDate) throw new NetworkError("Source metadata is incomplete. Enter the actual event dates manually for review.");
+  if (endDate < startDate) throw new NetworkError("Source end date precedes its start date.");
+  if (!location) location = "Location not provided";
 
   const timezone = inferTimezone(location);
 
@@ -503,7 +375,7 @@ export function parseConferenceHtml(htmlText: string, sourceUrl: string): Extrac
     startDate: startDate.toISOString().split("T")[0],
     endDate: endDate.toISOString().split("T")[0],
     timezone,
-    cfpDeadline: cfpDeadline ? cfpDeadline.toISOString().split("T")[0] : undefined,
+    cfpDeadline: null,
     location,
     description: description ? description.slice(0, 1900) : undefined,
     url,

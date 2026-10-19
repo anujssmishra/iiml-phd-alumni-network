@@ -1,70 +1,80 @@
 # Hosting decision and operational release gates
 
-Updated 12 October 2026 against merged `a05f216`. The architecture decision is retained; this is not infrastructure provisioning, a deployment approval, or a fresh application verification. Follow [PLAN.md](../PLAN.md) for H1–H6 and [IMPLEMENTATION_CHECKS.md](IMPLEMENTATION_CHECKS.md) for evidence boundaries.
+Updated 19 October 2026 · Source baseline `b404710` plus local P2A–P2B changes. Architecture retained; local validation is recorded in the evidence ledger. Follow [PLAN.md](../PLAN.md) for P2 and [IMPLEMENTATION_CHECKS.md](IMPLEMENTATION_CHECKS.md) for results and remaining deployment gates.
 
 ## Decision and reason
 
-Retain Next.js with Prisma/SQLite on one persistent Node 24 process. The existing application uses this stack and the proposed private pilot is small. This avoids a framework/database rewrite while preserving membership and directory access control. npm and `package-lock.json` remain the package-manager authority. Tailwind uses PostCSS; private pages use request-time rendering rather than shared component caching.
+Retain Next.js/Prisma/SQLite on one persistent Node 24 server for the bounded pilot. Keep npm/`package-lock.json` authoritative. This preserves the implemented membership/privacy workflows without a framework or database rewrite.
 
-The deployment must provide a persistent writable volume, durable backups, HTTPS, environment secrets, and a controlled migration step. SQLite is unsuitable for an ephemeral filesystem or several independently writable application instances. A serverless-only or horizontally scaled host needs a separate database decision and tested migration; PHP-only shared hosting needs a separately scoped rewrite. No vendor is selected or provisioned by this document.
+The host must provide persistent writable storage, durable protected backups, HTTPS, secret management and controlled migrations. Ephemeral storage or independently writable replicas require a separate database decision. PHP-only hosting requires a separately scoped migration/rewrite. No vendor, region, domain or paid service has been chosen by this review.
 
-## Current operational blockers
+## Current release blockers
 
-- H1: the Node startup hook schedules an external ingestion run after ten seconds and repeats every 24 hours by default. Both development and production starts can mutate/publish into their configured database. No supported disable flag exists; `APP_ENV=test` and `ALLOW_DEMO_SEED=0` do not stop it. The `NODE_ENV=test` timer guard is for unit tests, not an approved runtime workaround. Default-off scheduling, bounded execution, ingress protection, and concurrency control remain work to implement.
-- H2: the seed deletes demo records and overwrites 27 real-looking events as published/non-demo with a fixed source-check timestamp. Neither seed labels nor successful fetch timestamps prove reviewed provenance. The conference migration's `ADD COLUMN ... DEFAULT CURRENT_TIMESTAMP` fails against populated `Conference` tables in an isolated SQLite reproduction. A compatible table rebuild/backfill plus upgrade/restore rehearsal is required before retained-data migration.
-- H3: isolated database wrappers do not make the current suite offline. Live ingestion tests and the development browser server can access external sources; historical passing checks do not verify this merged revision. Fixture-driven tests and exact-revision CI evidence are required.
+- **P2A implemented locally:** runtime shortcut removed; known prior predictable tokens rejected at session reads; both seeds require an owned temporary target and preserve existing records. Record actual prior use in retained environments before deployment; no accounts/sessions were removed.
+- **P2B implemented locally:** reviewed publication, transactional history/draft restore, date/calendar consistency, participation consent, paginated queues and own archived-RSVP cancellation. URL fetching and sync/cron/scheduler execution refuse during P2; catalogue import creates unreviewed drafts only.
+- **P2C:** handle the rewritten migration's existing histories, demonstrate consistent offline recovery, prove full source-network isolation and record exact-release-SHA local/CI results. P2A now forces the scheduler off in verification.
+- **P2D:** demonstrate real OAuth/HTTPS/session behavior, name operators, approve policies and rehearse restore/rollback on isolated staging.
+- **P2E:** curate the small verified event set and recruit a consenting cohort only with separate authority.
 
-Until these are closed, do not start or migrate this revision against retained member/event data, or expose it as a pilot. Local experiments must use expressly disposable data. See [local setup](../GETTING_STARTED.md) for the present command side effects.
+Earlier fixes include curator authorization, fail-closed POST cron, table-rebuild migration, lifecycle UI and recovery tooling. P2B now disables real fetching/scheduled execution at runtime rather than leaving an environment opt-in. These changes do not close migration-lineage, recovery, provider or deployment gates.
 
 ## Environment separation
 
-| Environment | Database and data | Authentication | Operating rule |
-| --- | --- | --- | --- |
-| Local | Developer-owned disposable SQLite path until H1–H3 pass | Separate local OAuth client and localhost callback | `.env` ignored; no retained database startup or unsafe seed use |
-| Tests/build | Unique temporary SQLite file for each wrapper invocation | Fixture sessions and non-live auth configuration | Retained database writes are isolated, but external HTTP/background ingestion is not yet disabled |
-| Staging | Separate persistent volume; synthetic/consented test data | Separate client, secret, and HTTPS callback | H5 follows H1–H4; no production member-data copy without a specific approved purpose |
-| Production | Absolute path on a dedicated persistent volume | Production client, secret, and HTTPS callback | Required: controlled release/migrations, restricted OS access and encrypted backups; deployment unverified |
-
-Runtime identity/database settings are `APP_ENV`, `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ACADEMIC_EMAIL_DOMAINS`. `ALLOW_DEMO_SEED` stays unset/zero outside an explicit disposable local/test experiment; its current guard does not make the seed non-destructive.
-
-The merged ingestion code also reads settings not yet included in `.env.example`:
-
-| Setting | Observed semantics | Release implication |
+| Environment | Data/authentication | Operating rule |
 | --- | --- | --- |
-| `CRON_SECRET` | When absent, production denies the cron route but non-production permits it. When set, a bearer token, `x-cron-secret`, or query parameter authorizes GET/POST batch execution. | Prefer secrets outside URLs; H1 must remove unsafe defaults and mutating GET behavior. This secret does not govern the startup timer. |
-| `AUTO_SYNC_INTERVAL_HOURS` | `Number(value) || 24`; zero/invalid input falls back to 24, while negative/oversized intervals are not validated. Initial startup sync still runs after ten seconds. | Not an off switch. Validate bounds and add explicit default-off scheduling in H1; controlled automation remains H6. |
+| Local | Developer-owned disposable SQLite; separate localhost OAuth client | No public exposure or retained-data seeds; scheduler explicitly off |
+| Tests/build | Wrapper-owned temporary DB, synthetic sessions and dummy auth config | Harness forces scheduler off; full source-network denial still needs proof |
+| Staging | Separate volume and OAuth client/HTTPS callback; synthetic or explicitly consented test data | P2C precedes live staging acceptance; no routine production member-data copies |
+| Production | Dedicated persistent volume, absolute DB path, separate HTTPS client/secrets | Controlled release/migrations, restricted OS access, protected off-volume backups; deployment unverified |
 
-No secret belongs in a `NEXT_PUBLIC_*` variable, source file, image, browser bundle, URL, or log. The build wrapper supplies isolated database/auth values; deployment must supply its own runtime environment. Do not infer network isolation from database isolation.
+Runtime settings: `APP_ENV`, `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ACADEMIC_EMAIL_DOMAINS`. `ALLOW_DEMO_SEED` and `ALLOW_DEV_SEED` stay unset/zero outside a deliberate disposable fixture operation. Both seeds require a marked, owner-restricted temporary database and matching `FIXTURE_DATABASE_DIR`; they skip existing records without deletion or updates.
 
-`sync:conferences` is not read-only even without `--auto-update`: it records source-check timestamps. The batch CLI, startup timer, and cron route all create/update/publish records. Existing drafts/archived records can be republished by batch matching. Replace this behavior with reviewable changes and protected curator state before allowing scheduled production execution.
+The template now documents the scheduler disable flag. Cron/interval settings below remain absent from it:
 
-## Backup, migration, and release requirements
+| Setting | Observed semantics | Operating rule |
+| --- | --- | --- |
+| `ENABLE_AUTO_CONFERENCE_SYNC` | Compatibility flag; cannot enable P2 runtime ingestion | Keep `0`; P3 needs a reviewed implementation |
+| `CRON_SECRET` | Missing/blank denies every environment; GET 405; valid POST header credentials reach P2 refusal (503) | Leave unconfigured for pilot; no URL secrets |
+| `AUTO_SYNC_INTERVAL_HOURS` | Inactive throughout P2 | Define bounds/runtime controls before P3 |
 
-The future operator must arrange a consistent SQLite backup using the SQLite backup API/CLI or a database-aware volume snapshot. Copying only the main database during writes can omit WAL contents; rehearse the chosen method. Keep encrypted backups outside the application volume, limit access, and verify restoration to an isolated database. Proposed pilot recovery targets remain at most 24 hours of data loss and four hours to restore until demonstrated.
+Do not put secrets in `NEXT_PUBLIC_*`, source, bundles, URLs or logs. Build-time isolated values are not production runtime configuration. P2B also refuses sync CLI and cron execution. Catalogue `--publish` is rejected; its supported importer adds absent drafts without changing any existing record or claiming source checks.
 
-The migration wrapper's exclusive file creation does not truncate existing databases, but it cannot fix incompatible migration SQL. H2 must test the conference migration on a populated copy, with existing event dates, attendance relations, constraints and rollback evidence. Empty-database success is insufficient. Never delete records, reset a database, or edit already-applied migration history merely to bypass the populated migration failure; plan the repair for each observed migration state.
+## Backup, migrations and recovery
 
-After that gate passes, every production migration needs a verified recoverable backup, committed migration history, an operator-controlled `npm run db:migrate` step, and an exact released revision. Application rollback needs a schema-compatible revision or a tested restore; checking out older code does not reverse a migration. Preserve unrelated applications, secrets, domains and volumes on any shared account.
+Existing `db:backup` uses `VACUUM INTO` and an integrity check. Its destination quoting needs repair. Existing `db:restore` copies the active main file, overwrites it and deletes WAL/SHM without proving writers stopped. A safety copy can omit committed WAL state. Script existence and quiescent tests are not production recovery evidence.
 
-Health checks and logs must avoid member names, email addresses, tokens and contact-request text. H6 additionally requires a durable ingestion run ledger, bounded/retry-safe execution, overlap protection, clear partial-failure reporting, curator-visible changes and a tested reversal path. A process-local interval is not proof of reliable scheduled operation.
+P2C requires offline/exclusive maintenance, a verified consistent safety snapshot, distinct validated paths, atomic replacement and failure rollback. Exclude all recovery files from Git; restrict OS access and protect off-volume copies. Then rehearse timed restoration and application rollback on synthetic populated staging data. Proposed recovery targets are at most 24 hours of data loss and four hours to restore, pending operator demonstration.
 
-## Account-specific decisions required for H5 / the P2 pilot
+The migration wrapper never truncates an existing file, and the conference SQL now rebuilds/backfills tables. But it was changed under an existing migration name: inventory fresh, foundation-only, older-applied and failed histories before applying anything to retained data. Test the supported repair on disposable copies, preserving IDs/dates/attendance/participation fields and foreign keys. Never reset data or blindly resolve checksums to bypass the issue.
 
-| Item | Current status |
+The fourth (P2B) review migration intentionally returns non-demo legacy published events to draft for human review, preserving IDs/facts/RSVPs and recording their old publication state. Confirm this visibility change in the staging rehearsal; a timestamp from the old importer does not bypass the new review gate.
+
+Every retained-data migration needs a recoverable backup, supported history, controlled `db:migrate` step and exact application revision. An older checkout does not undo a schema change. Preserve sibling applications, credentials, domains and volumes on shared accounts.
+
+## Operations and automation
+
+Log minimal diagnostics without member names/emails, tokens, contact text or submitted paper titles. Name incident, rollback and support owners; define retention/deletion and credential rotation.
+
+Keep P3 automation deferred. Before enabling it, require a durable cross-process lease/run ledger, bounded runtime/intervals, retries/rate limits, meaningful partial-failure status/notifications, source-access review, human change approval and reversal history. Current process-local locking and timers do not supply those guarantees.
+
+## Decisions required before staging and pilot
+
+| Decision | Current status |
 | --- | --- |
-| Hosting vendor/account and region | Unknown; must meet persistent Node/SQLite requirements |
-| Domain, institutional branding permission, and DNS access | Unknown |
-| Monthly budget and billing owner | Unknown |
-| Named production operator and alternate | Unassigned |
-| Membership reviewer, event curator and contact-request moderator | Unassigned |
-| Backup destination, retention, and restore evidence | Not provisioned or tested |
-| Production OAuth consent/client configuration | Not verified by this review |
-| Staging and production deployment | Not verified by this review |
+| Vendor/account/region and persistent storage | Unconfirmed |
+| Domain, DNS access and institutional branding permission | Unconfirmed |
+| Budget/billing owner | Unassigned |
+| Operator/alternate, rollback and support owners | Unassigned |
+| Membership reviewer, event curator, pilot coordinator | Unassigned |
+| Backup destination, retention and timed recovery evidence | Unverified |
+| Actual retained-database migration lineage | Not inspected |
+| Real Google OAuth callbacks and deployed browser evidence | Unverified |
+| Privacy/retention policy, cohort and launch authorization | Required |
 
-These unknowns do not erase the earlier local P0–P1B implementation, but remain release gates alongside post-merge hardening. H4 accepts event lifecycle/public UX; H5 must verify real OAuth callbacks, HTTPS/private cookies, access controls, backup restoration and rollback on the chosen staging environment before a separately authorized pilot. No external service, credential, real member, invitation or deployment is created by this decision.
+These are release gates, not reasons to rebuild already working product flows. P2D collects evidence; P2E follows explicit authorization. This document creates no services, credentials, real accounts or invitations.
 
 ## Historical dependency follow-up — not a fresh audit
 
-The earlier 11 October 2026 P0 verification recorded a clean install on Node 24.19.0/npm 10.7.0 and eight high-severity transitive audit entries. Its recorded chains were ESLint glob tooling through `braces` and Prisma configuration tooling through `deepmerge-ts`; `npm audit --omit=dev` reported three Prisma-chain entries because the client could bring in the CLI as an optional peer. Those are historical observations, not a new audit of `a05f216` or a clean production-artifact assessment.
+The earlier 11 October 2026 P0 record reported Node 24.19.0/npm 10.7.0 and eight high-severity transitive audit entries, with ESLint/glob and Prisma configuration chains; its production-only audit reported three Prisma-chain entries. Those are historical observations, not a current audit or production-artifact assessment.
 
-The recorded advisory references are [braces](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and [deepmerge-ts](https://github.com/advisories/GHSA-ggr8-5vv4-36mx). The earlier audit suggested incompatible toolchain downgrades, so none was forced. H3/H5 must rerun the audit, assess compatible fixes and actual deployed contents, and document resolved or explicitly accepted residual risk before exposure. Current member inputs are not intentionally passed to those configuration/glob APIs; that observation does not resolve the advisories. No dependency installation or audit was performed for this documentation update.
+The earlier record linked [braces](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and [deepmerge-ts](https://github.com/advisories/GHSA-ggr8-5vv4-36mx), and did not force suggested incompatible downgrades. P2C must rerun the audit, assess compatible fixes and actual deployed contents, and record resolved or accepted residual risks. The original planning pass installed nothing. P2B subsequently added development-only ICAL.js 2.2.1 for independent calendar parsing; the installation's audit summary still reported eight high-severity findings. Their release-artifact impact and remediation remain P2C work; no forced major changes or external advisory verification occurred.

@@ -6,6 +6,8 @@ import {
   parseConference,
   parseConferenceSuggestion,
   text,
+  parseConferenceReview,
+  CONFERENCE_REVIEW_FIELDS,
 } from "./validation";
 
 export async function requireCurator(userId: string | null) {
@@ -36,6 +38,7 @@ export const publicConferenceSelect = {
   url: true,
   sourceUrl: true,
   sourceCheckedAt: true,
+  reviewedAt: true,
   publicationState: true,
   isDemo: true,
 } satisfies Prisma.ConferenceSelect;
@@ -46,7 +49,7 @@ export async function listPublicConferences(filters: ConferenceFilters = {}) {
   const rawPage = String(filters.page ?? "1");
   if (!/^[1-9]\d{0,5}$/.test(rawPage)) throw new NetworkError("Invalid conference page.");
 
-  const now = new Date();
+  const now = new Date(new Date().toISOString().slice(0, 10));
   const timeframeCondition: Prisma.ConferenceWhereInput =
     timeframe === "upcoming"
       ? { endDate: { gte: now } }
@@ -81,7 +84,7 @@ export async function listPublicConferences(filters: ConferenceFilters = {}) {
   const conferences = await prisma.conference.findMany({
     where,
     select: publicConferenceSelect,
-    orderBy,
+    orderBy: [orderBy, { id: "asc" }],
     skip: total > 0 ? (page - 1) * pageSize : 0,
     take: pageSize,
   });
@@ -94,13 +97,6 @@ export async function getConferenceDetail(userId: string | null, conferenceId: s
     where: { id: conferenceId },
     select: {
       ...publicConferenceSelect,
-      curator: {
-        select: {
-          id: true,
-          name: true,
-          current_institution: true,
-        },
-      },
     },
   });
 
@@ -129,67 +125,105 @@ export async function getConferenceDetail(userId: string | null, conferenceId: s
 export async function createConference(userId: string | null, input: unknown) {
   const curator = await requireCurator(userId);
   const data = parseConference(input);
-
-  return prisma.conference.create({
-    data: {
-      ...data,
-      curatorId: curator.id,
-      sourceCheckedAt: new Date(),
-    },
+  const review = parseConferenceReview(input, data.publicationState, data.sourceUrl);
+  return prisma.$transaction(async db => {
+    const created = await db.conference.create({ data: { ...data, curatorId: curator.id, ...reviewMetadata(curator.id, review.confirmed) } });
+    await recordRevision(db, created.id, curator.id, review.reason, null, created);
+    return created;
   });
 }
 
 export async function updateConference(userId: string | null, conferenceId: string, input: unknown) {
   const curator = await requireCurator(userId);
   const data = parseConference(input);
-
-  const existing = await prisma.conference.findUnique({ where: { id: conferenceId } });
-  if (!existing) throw new NetworkError("Conference not found.", 404);
-
-  return prisma.conference.update({
-    where: { id: conferenceId },
-    data: {
-      ...data,
-      curatorId: curator.id,
-      sourceCheckedAt: new Date(),
-    },
+  const review = parseConferenceReview(input, data.publicationState, data.sourceUrl, true);
+  return prisma.$transaction(async db => {
+    const existing = await db.conference.findUnique({ where: { id: conferenceId } });
+    if (!existing) throw new NetworkError("Conference not found.", 404);
+    const expected = (input as { expectedUpdatedAt?: string }).expectedUpdatedAt;
+    if (expected && expected !== existing.updatedAt.toISOString()) throw new NetworkError("This conference changed while you were editing. Reopen it before saving.", 409);
+    const updated = await db.conference.update({
+      where: { id: conferenceId, updatedAt: existing.updatedAt },
+      data: { ...data, curatorId: curator.id, ...reviewMetadata(curator.id, review.confirmed) },
+    });
+    await recordRevision(db, conferenceId, curator.id, review.reason, existing, updated);
+    return updated;
   });
 }
 
+function reviewMetadata(curatorId: string, confirmed: boolean) {
+  const reviewedAt = confirmed ? new Date() : null;
+  return { reviewedAt, sourceCheckedAt: reviewedAt, reviewedById: confirmed ? curatorId : null, reviewedFields: confirmed ? JSON.stringify(CONFERENCE_REVIEW_FIELDS) : null };
+}
+
+async function recordRevision(db: Prisma.TransactionClient, conferenceId: string, actorId: string, reason: string, before: unknown, after: { sourceUrl: string | null }) {
+  await db.conferenceRevision.create({ data: { conferenceId, actorId, reason, sourceUrl: after.sourceUrl, beforeJson: before ? JSON.stringify(before) : null, afterJson: JSON.stringify(after) } });
+}
+
 export async function setPublicationState(userId: string | null, conferenceId: string, state: string) {
-  await requireCurator(userId);
+  const curator = await requireCurator(userId);
   if (!["draft", "published", "archived"].includes(state)) {
     throw new NetworkError("Invalid publication state.");
   }
 
-  const existing = await prisma.conference.findUnique({ where: { id: conferenceId } });
-  if (!existing) throw new NetworkError("Conference not found.", 404);
-
-  return prisma.conference.update({
-    where: { id: conferenceId },
-    data: { publicationState: state },
+  return prisma.$transaction(async db => {
+    const existing = await db.conference.findUnique({ where: { id: conferenceId } });
+    if (!existing) throw new NetworkError("Conference not found.", 404);
+    if (state === "published" && (!existing.reviewedAt || !existing.sourceUrl || existing.reviewedFields !== JSON.stringify(CONFERENCE_REVIEW_FIELDS))) throw new NetworkError("Review every field against the edition-specific source in Edit before publishing.");
+    const updated = await db.conference.update({ where: { id: conferenceId, updatedAt: existing.updatedAt }, data: { publicationState: state } });
+    await recordRevision(db, conferenceId, curator.id, `Publication changed from ${existing.publicationState} to ${state}.`, existing, updated);
+    return updated;
   });
+}
+
+export async function listConferenceRevisions(userId: string | null, conferenceId: string, pageInput: string | number = 1) {
+  await requireCurator(userId);
+  const paging = queuePage(pageInput, await prisma.conferenceRevision.count({ where: { conferenceId } }));
+  const rows = await prisma.conferenceRevision.findMany({ where: { conferenceId }, include: { actor: { select: { name: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: paging.skip, take: paging.pageSize });
+  return { ...paging, rows };
+}
+
+export async function restoreConferenceRevision(userId: string | null, conferenceId: string, revisionId: string, reason: string) {
+  await requireCurator(userId);
+  const revision = await prisma.conferenceRevision.findFirst({ where: { id: revisionId, conferenceId } });
+  if (!revision) throw new NetworkError("Conference version not found.", 404);
+  return updateConference(userId, conferenceId, { ...JSON.parse(revision.afterJson), publicationState: "draft", reviewConfirmed: false, changeReason: reason });
 }
 
 export async function deleteConference(userId: string | null, conferenceId: string) {
   await requireCurator(userId);
-  const existing = await prisma.conference.findUnique({ where: { id: conferenceId } });
-  if (!existing) throw new NetworkError("Conference not found.", 404);
-
-  return prisma.conference.delete({ where: { id: conferenceId } });
+  return prisma.$transaction(async db => {
+    const existing = await db.conference.findUnique({ where: { id: conferenceId }, include: { _count: { select: { attendees: true, revisions: true } } } });
+    if (!existing) throw new NetworkError("Conference not found.", 404);
+    if (existing.publicationState !== "draft" || existing._count.attendees || existing._count.revisions) throw new NetworkError("Archive this conference to preserve its attendance and review history.", 409);
+    return db.conference.delete({ where: { id: conferenceId, updatedAt: existing.updatedAt } });
+  });
 }
 
-export async function listAllConferencesForCurator(userId: string | null) {
+export async function listAllConferencesForCurator(userId: string | null, pageInput: string | number = 1) {
   await requireCurator(userId);
-  return prisma.conference.findMany({
+  const paging = await queuePage(pageInput, await prisma.conference.count());
+  const rows = await prisma.conference.findMany({
     select: {
       ...publicConferenceSelect,
       curator: { select: { id: true, name: true } },
-      _count: { select: { attendees: true } },
+      _count: { select: { attendees: true, revisions: true } },
+      updatedAt: true,
     },
-    orderBy: { startDate: "desc" },
-    take: 200,
+    orderBy: [{ startDate: "desc" }, { id: "asc" }],
+    skip: paging.skip,
+    take: paging.pageSize,
   });
+  return { ...paging, rows };
+}
+
+function queuePage(pageInput: string | number, total: number) {
+  const value = String(pageInput);
+  if (!/^[1-9]\d{0,5}$/.test(value)) throw new NetworkError("Invalid queue page.");
+  const pageSize = 20;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Number(value), pages);
+  return { total, page, pages, pageSize, skip: (page - 1) * pageSize };
 }
 
 export async function submitConferenceSuggestion(userId: string | null, input: unknown) {
@@ -205,18 +239,22 @@ export async function submitConferenceSuggestion(userId: string | null, input: u
   });
 }
 
-export async function listOwnSuggestions(userId: string | null) {
+export async function listOwnSuggestions(userId: string | null, pageInput: string | number = 1) {
   const user = await requireMember(userId);
-  return prisma.conferenceSuggestion.findMany({
+  const paging = queuePage(pageInput, await prisma.conferenceSuggestion.count({ where: { submitterId: user.id } }));
+  const rows = await prisma.conferenceSuggestion.findMany({
     where: { submitterId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    skip: paging.skip,
+    take: paging.pageSize,
   });
+  return { ...paging, rows };
 }
 
-export async function listPendingSuggestions(userId: string | null) {
+export async function listPendingSuggestions(userId: string | null, pageInput: string | number = 1) {
   await requireCurator(userId);
-  return prisma.conferenceSuggestion.findMany({
+  const paging = queuePage(pageInput, await prisma.conferenceSuggestion.count({ where: { status: "pending" } }));
+  const rows = await prisma.conferenceSuggestion.findMany({
     where: { status: "pending" },
     include: {
       submitter: {
@@ -228,9 +266,11 @@ export async function listPendingSuggestions(userId: string | null) {
         },
       },
     },
-    orderBy: { createdAt: "asc" },
-    take: 100,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    skip: paging.skip,
+    take: paging.pageSize,
   });
+  return { ...paging, rows };
 }
 
 export async function reviewConferenceSuggestion(
@@ -242,6 +282,7 @@ export async function reviewConferenceSuggestion(
   if (!["approved", "rejected"].includes(decision.status)) {
     throw new NetworkError("Invalid decision status.");
   }
+  if (decision.publicationState === "published") throw new NetworkError("Suggestions must become drafts and receive an explicit source review before publication.");
 
   return prisma.$transaction(async (db) => {
     const suggestion = await db.conferenceSuggestion.findUnique({ where: { id: suggestionId } });
@@ -262,15 +303,17 @@ export async function reviewConferenceSuggestion(
           date: suggestion.startDate,
           startDate: suggestion.startDate,
           endDate: suggestion.endDate,
+          timezone: suggestion.timezone,
+          cfpDeadline: suggestion.cfpDeadline,
           location: suggestion.location,
           description: suggestion.description,
           url: suggestion.url,
           sourceUrl: suggestion.url,
-          sourceCheckedAt: new Date(),
           curatorId: curator.id,
-          publicationState: decision.publicationState ?? "draft",
+          publicationState: "draft",
         },
       });
+      await recordRevision(db, createdConference.id, curator.id, "Accepted a member suggestion as an unreviewed draft.", null, createdConference);
     }
 
     return { suggestion: updatedSuggestion, conference: createdConference };

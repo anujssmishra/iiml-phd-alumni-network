@@ -91,7 +91,7 @@ test("automated conference fetcher & sync test suite", async (t) => {
     assert.equal(extracted.location, "Boston Convention Center, Boston, MA, USA");
     assert.equal(extracted.startDate.toISOString().split("T")[0], "2027-08-06");
     assert.equal(extracted.endDate.toISOString().split("T")[0], "2027-08-10");
-    assert.equal(extracted.cfpDeadline?.toISOString().split("T")[0], "2027-01-12");
+    assert.equal(extracted.cfpDeadline, null, "Ticket offer expiry is not a CFP deadline.");
     assert.ok(extracted.confidenceScore >= 0.7);
     assert.equal(extracted.rawMetadata.jsonLdFound, true);
   });
@@ -112,25 +112,20 @@ test("automated conference fetcher & sync test suite", async (t) => {
       </html>
     `;
 
-    const extracted = parseConferenceHtml(mockHtml, "https://ecis2027.eu");
-
-    assert.equal(extracted.name, "European Conference on Information Systems (ECIS 2027)");
-    assert.equal(extracted.acronym, "ECIS 2027");
-    assert.equal(extracted.description, "Information systems research conference in Stockholm.");
-    assert.equal(extracted.cfpDeadline?.toISOString().split("T")[0], "2027-01-15");
-    assert.equal(extracted.rawMetadata.openGraphFound, true);
+    assert.throws(() => parseConferenceHtml(mockHtml, "https://ecis2027.eu"), /metadata is incomplete/);
   });
 
   await t.test("findExistingConferenceMatch and computeConferenceDiff identify updates", async () => {
     const curator = await createCurator();
 
     const existingConf = await createConference(curator.id, {
+      reviewConfirmed: true,
       name: "International Conference on Information Systems",
       acronym: "ICIS 2026",
       startDate: "2026-12-10",
       endDate: "2026-12-13",
       timezone: "Asia/Bangkok",
-      cfpDeadline: "2026-05-01",
+      cfpDeadline: "2026-05-01T00:00:00Z",
       location: "Bangkok, Thailand",
       url: "https://icis2026.aisnet.org",
       publicationState: "published",
@@ -165,8 +160,8 @@ test("automated conference fetcher & sync test suite", async (t) => {
     assert.equal(diff.hasChanges, true);
     assert.equal(diff.cfpDeadlineChanged, true);
     assert.equal(diff.items[0].field, "cfpDeadline");
-    assert.equal(diff.items[0].oldValue, "2026-05-01");
-    assert.equal(diff.items[0].newValue, "2026-05-15");
+    assert.equal(diff.items[0].oldValue, "2026-05-01T00:00:00.000Z");
+    assert.equal(diff.items[0].newValue, "2026-05-15T00:00:00.000Z");
   });
 
   await t.test("reconcileConferenceSync creates draft and updates existing records while preserving state", async () => {
@@ -197,7 +192,7 @@ test("automated conference fetcher & sync test suite", async (t) => {
     assert.equal(createdDraft.publicationState, "draft");
     assert.equal(createdDraft.name, "Strategic Management Society Annual Conference");
     assert.equal(createdDraft.acronym, "SMS 2027");
-    assert.ok(createdDraft.sourceCheckedAt);
+    assert.equal(createdDraft.sourceCheckedAt, null);
 
     // 2. Reconcile update existing
     const updatedExtracted = {

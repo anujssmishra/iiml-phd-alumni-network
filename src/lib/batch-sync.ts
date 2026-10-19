@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { fetchConferenceFromUrl, ExtractedConference } from "./conference-fetcher";
 import { findExistingConferenceMatch, computeConferenceDiff } from "./conference-sync";
 import { NetworkError } from "./validation";
+import { denyPilotIngestion } from "./conference-ingestion-policy";
 
 declare global {
   var __conferenceBatchSyncLock: boolean | undefined;
@@ -144,6 +145,9 @@ export interface SyncBatchOptions {
 }
 
 export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promise<BatchSyncSummary> {
+  // Only deterministic injected fixtures exercise this prototype during P2.
+  // Runtime callers cannot enable real source ingestion with environment flags.
+  if (process.env.NODE_ENV !== "test" || (!options?.fetcher && !globalThis.__mockConferenceFetcher)) denyPilotIngestion();
   if (globalThis.__conferenceBatchSyncLock) {
     throw new NetworkError("A conference sync operation is already in progress.", 409);
   }
@@ -182,7 +186,7 @@ export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promi
         if (match.conference.publicationState === "archived") {
           await prisma.conference.update({
             where: { id: match.conference.id },
-            data: { sourceCheckedAt: new Date() },
+            data: { sourceFetchedAt: new Date() },
           });
           unchanged++;
           details.push({
@@ -195,10 +199,10 @@ export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promi
         }
 
         // 2. Never overwrite curator-reviewed records
-        if (match.conference.curatorId != null) {
+        if (match.conference.curatorId != null || match.conference.publicationState === "published") {
           await prisma.conference.update({
             where: { id: match.conference.id },
-            data: { sourceCheckedAt: new Date() },
+            data: { sourceFetchedAt: new Date() },
           });
           unchanged++;
           details.push({
@@ -226,7 +230,7 @@ export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promi
               description: extracted.description || match.conference.description,
               url: extracted.url || source.url,
               sourceUrl: source.url,
-              sourceCheckedAt: new Date(),
+              sourceFetchedAt: new Date(),
               publicationState: match.conference.publicationState,
             },
           });
@@ -241,7 +245,7 @@ export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promi
           await prisma.conference.update({
             where: { id: match.conference.id },
             data: {
-              sourceCheckedAt: new Date(),
+              sourceFetchedAt: new Date(),
             },
           });
           unchanged++;
@@ -267,7 +271,7 @@ export async function syncAllConferencesBatch(options?: SyncBatchOptions): Promi
             description: extracted.description || `${source.name} (${source.domain})`,
             url: extracted.url || source.url,
             sourceUrl: source.url,
-            sourceCheckedAt: new Date(),
+            sourceFetchedAt: new Date(),
             publicationState: "draft",
           },
         });

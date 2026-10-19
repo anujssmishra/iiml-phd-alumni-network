@@ -266,7 +266,7 @@ test("H1 Hardening — Ingestion entry points and unattended writes", async (t) 
         headers: { "x-cron-secret": "valid-secret-token" },
       })
     );
-    assert.equal(validHeaderRes.status, 200);
+    assert.equal(validHeaderRes.status, 503);
 
     // Cleanup
     delete process.env.CRON_SECRET;
@@ -311,9 +311,9 @@ test("H1 Hardening — Ingestion entry points and unattended writes", async (t) 
     assert.equal(globalThis.__autoSchedulerInitialized, undefined);
 
     process.env.ENABLE_AUTO_CONFERENCE_SYNC = "true";
-    assert.equal(isAutoSchedulerEnabled(), true);
+    assert.equal(isAutoSchedulerEnabled(), false);
     initAutoScheduler();
-    assert.equal(globalThis.__autoSchedulerInitialized, true);
+    assert.equal(globalThis.__autoSchedulerInitialized, undefined);
 
     stopAutoScheduler();
     delete process.env.ENABLE_AUTO_CONFERENCE_SYNC;

@@ -1,151 +1,118 @@
 # IIM PhD & FPM Alumni Network — Project Overview
 
-Version 1.2 · Updated 12 October 2026 · Inspected Git revision `a05f216` (`master`, matching the fetched `origin/master`).
+Version 1.5 · Updated 19 October 2026 · Baseline `b404710` plus local P2A–P2B implementation.
 
-Status: P0–P1B were locally verified at the earlier `cfd165e` revision. Conference curation, richer catalogue/detail pages and ingestion now exist in the merged source, but P1C/P3 acceptance and production readiness remain open. This is a source-grounded handoff, not a claim that the current database, official conference facts, live OAuth or deployment have been verified.
+P2A development safety and P2B manual curation are implemented locally. Continue with P2C migration/recovery/release proof. Local evidence is recorded separately from real OAuth, retained-data histories, external event facts and deployment in [IMPLEMENTATION_CHECKS.md](docs/IMPLEMENTATION_CHECKS.md). The execution contract is [PLAN.md](PLAN.md).
 
-The café reference's eight-part structure and operating discipline are retained through the [reusable planning skill](skills/community-platform-planning/SKILL.md). [PLAN.md](PLAN.md) is the execution roadmap; [implementation checks](docs/IMPLEMENTATION_CHECKS.md) separates historical runs from current findings.
+The café reference's eight-part structure, small-pilot approach and human editorial operation remain represented by the [planning skill](skills/community-platform-planning/SKILL.md).
 
 ## 1. Purpose and current product
 
-An independent academic community for IIM PhD/FPM scholars and alumni, starting with a proposed IIM Lucknow pilot. Membership approval, consent-based discovery and conference coordination are the core. Institutional endorsement is not established.
+An independent academic community for IIM PhD/FPM scholars and alumni, starting with a proposed IIM Lucknow cohort. Membership review, consent-based discovery and conference coordination are the core. Institutional endorsement is not established.
 
 | Capability | Observed implementation |
 | --- | --- |
-| Identity/membership | Google mailbox verification; pending/approved/rejected/suspended statuses; member/curator/admin roles; application/review audit; paginated admin queue |
-| Profiles/directory | Self-service controlled fields, opt-in visibility/contact, private search/filter/pagination and last-confirmed date |
-| Contact introductions | Explicit sender reply address, recipient acceptance, withdrawal/cancellation; not a messaging platform |
-| Attendance | Session-derived idempotent RSVP/cancellation and private, consent-filtered rosters |
-| Event catalogue | Published-event search, upcoming/past filters, 24-record pages, discipline presentation and rich detail sections |
-| Curation | Curator create/state/delete, suggestions/review, update service/action; manual edit UI and publication guarantees remain incomplete |
-| Ingestion | URL extraction, matching/diffs, reconciliation, CLI batch, cron endpoint and startup timers |
-| Collaboration/vault | Co-authorship, housing coordination, mentorship and document sharing remain proposed |
-
-The next useful milestone is **hardening existing event workflows**, not building them again or expanding a nominal “verified” dataset.
+| Membership | Verified Google identity policy; reviewed status/roles, audit and current-state access checks |
+| Directory/contact | Opt-in profiles, private filters/pagination, consent-based introductions, withdrawal/deletion |
+| Curation | Draft/suggestion review, explicit source-confirmed publication, corrections, archive and version restore |
+| Participation | Session-derived RSVP, bounded role/paper title, consent-filtered member roster |
+| Own attendance | Private My RSVPs page; cancellation after archive without revealing unpublished facts |
+| Calendars | All-day event dates plus exact UTC CFP reminder, safe text folding and non-cached export |
+| Queues/history | Stable pagination for catalogue, suggestions, own suggestions and correction history |
+| Ingestion | Runtime fetch/sync/scheduler/cron disabled for P2; additive draft-only catalogue import |
+| Collaboration/vault | Co-authorship, mentorship, housing coordination and document sharing remain proposed |
 
 ## 2. Stack and hosting decision
 
 | Layer | Current source |
 | --- | --- |
-| Application | Next.js 16.4, React 19.3, TypeScript, App Router |
-| Runtime/build | Node 24, npm, committed lockfile, explicit Webpack dev/build |
-| Persistence | Prisma/client 6.19.3, SQLite, two committed migrations |
-| Identity | Google-only NextAuth database sessions; no demo-login provider |
-| Authorization | Live membership/role/ownership checks for member workflows; new quick-fetch action is a known gap |
-| Presentation | Tailwind/PostCSS, shared CSS, system fonts and Lucide icons |
-| Verification | Node tests, Playwright Chromium, isolated DB wrappers and GitHub Actions |
+| App | Next.js 16.4, React 19.3, TypeScript/App Router, Webpack |
+| Runtime | Node 24/npm, committed package lock |
+| Persistence | Prisma/client 6.19.3, SQLite, four migrations including local P2B review migration |
+| Identity | Google NextAuth database sessions; old predictable development tokens rejected |
+| UI | Tailwind/PostCSS, shared CSS, system fonts and Lucide |
+| Verification | Node tests, Playwright, isolated DB wrappers, development/production test modes, GitHub Actions definition |
+| Calendar test tooling | ICAL.js 2.2.1 as a development-only independent parser |
 
-Retain the selected single persistent Node/SQLite deployment described in [HOSTING_DECISION.md](docs/HOSTING_DECISION.md). Vendor, region, domain, budget and named operator are not established by this review. Ephemeral storage or multiple independent writers would require a new database decision; PHP-only hosting implies a separately scoped migration. No stack rewrite or infrastructure provisioning occurred.
+Retain one persistent Node/SQLite server with isolated environment storage and secrets. Vendor, region, budget, domain and named operator remain unresolved; see [hosting](docs/HOSTING_DECISION.md). Ephemeral storage, independently writable replicas or PHP-only hosting require a separate decision.
 
 ## 3. Architecture and request flows
 
 ```text
 Browser → Next.js pages/actions
-  ├─ Published conference facts → conference-service → Prisma/SQLite
-  └─ Database session → current membership/role/consent checks
-       ├─ Profile, directory, contacts, RSVP → member-service
-       └─ Curator create/review/publish → conference-service
+  ├─ Published event facts → conference-service → Prisma/SQLite
+  └─ Database session → live membership/role/consent
+       ├─ Directory/contact/own RSVP → member-service
+       └─ Curator edits/review/publication → conference-service
+            └─ Atomic before/after revision + reviewer/source/reason
 
-Quick-fetch action → HTTP extraction → match/diff → browser reconciliation
-  Known gap: the preview action does not first check curator authorization.
-
-Node startup / cron / CLI → batch-sync → HTTP sources → direct published writes
-  Current behavior, not the desired reviewed-draft import architecture.
+Catalogue candidates → additive drafts → explicit curator source review → publication
+Runtime URL fetch / sync CLI / scheduler / cron → refused during P2
 ```
 
-### Important paths
+Important paths:
 
-```text
-src/app/
-  api/auth/[...nextauth]/route.ts    Google auth
-  api/cron/sync-conferences/route.ts Existing mutating cron endpoint
-  signin/, membership/              Identity/application/status
-  admin/members/                    Membership review, search and pagination
-  profile/, directory/, contacts/   Private member workflows
-  conferences/                      Catalogue, details and suggestions
-  admin/conferences/                Curator UI and quick-fetch actions
-src/instrumentation.ts              Registers startup ingestion
-src/lib/
-  auth-policy.ts, auth.ts, session.ts
-  member-service.ts, validation.ts  Membership/privacy and validation
-  conference-service.ts            Event/suggestion CRUD and visibility
-  conference-fetcher.ts            HTTP and metadata extraction
-  conference-sync.ts               Matching, diffs and reconciliation
-  batch-sync.ts, auto-scheduler.ts  Automatic imports and timers
-  prisma.ts                        Shared DB client
-prisma/schema.prisma, migrations/   Relational models and upgrade history
-prisma/seed.ts                      Guarded but destructive real-looking seed
-scripts/                           Migration, bootstrap, tests/build and sync
-tests/                             Member, event, ingestion and browser tests
-.github/workflows/check.yml         Verification workflow definition
-```
+- `src/lib/auth.ts`, `session.ts`, `src/app/signin/`: Google identity/session boundary, without fixture login.
+- `src/lib/member-service.ts`, `src/app/profile/`, `directory/`, `contacts/`: ownership, consent and private member workflows.
+- `src/lib/conference-service.ts`, `validation.ts`: event/suggestion CRUD, review/publication, revisions and queues.
+- `src/app/admin/conferences/`, `[id]/history/`: curator editing, source review and restore as an unreviewed draft.
+- `src/app/conferences/attendance/`: private own-RSVP list and session-owned cancellation.
+- `src/lib/conference-dates.ts`, `ical-generator.ts`, `src/app/api/conferences/[id]/ics/`: calendar-day versus timed-deadline handling and public-facts export.
+- `src/lib/conference-ingestion-policy.ts`: P2 runtime refusal shared by fetch, sync and cron paths.
+- `scripts/fixture-database.mjs`, `create-fixture-database.mjs`: marked temporary targets; both seeds preserve collisions and existing state.
+- `prisma/schema.prisma`, `prisma/migrations/`, `tests/`: models, upgrade history and evidence.
 
-Canonical files above are authoritative. Twenty-four untracked `* 2` copies were preserved; they are not additional supported implementations.
-
-### Membership and private data
-
-Google's verified identity and normalized email must match; academic domains are evidence, not automatic membership. Personal-email alumni can apply for review. Session-derived actions read current database membership rather than stale client roles. Pending/rejected/suspended users retain their own status and privacy/deletion controls but not member-directory access.
-
-Directory projection excludes account email, membership evidence, OAuth accounts and sessions. Contact requests require opt-in on both sides; the recipient sees only the sender's deliberately supplied reply email after acceptance. Withdrawal/suspension closes requests and removes shared addresses. Profile affiliations remain self-reported.
-
-RSVP uniqueness and current-user ownership are implemented. However, the RSVP service currently checks event existence rather than publication state; H4 must enforce draft/archive rules even for direct action calls. Public-roster protections from P1B must survive these event changes.
+The 24 untracked repository `* 2` copies and earlier stash remain preserved. Duplicate generated `.next/* 2.ts` files are excluded from typechecking; canonical generated types remain included.
 
 ## 4. Data models and integrity
 
-| Model | Role and current limits |
+| Model | Purpose and limits |
 | --- | --- |
 | User | Identity, reviewed membership/role, private evidence, profile and consent |
-| Account / Session / VerificationToken | OAuth/database sessions; account-deletion cascades |
-| MembershipReview | Reviewer/target, old/new status/role, reason/method/time; target notes redacted on deletion |
-| ContactRequest | Directed consent-based introduction with bounded message/address and active-request uniqueness |
-| Conference | Name/acronym, legacy date plus start/end, timezone/CFP, source URL/check time, curator, publication state and demo flag |
-| ConferenceSuggestion | Member submission and review status; no dedicated correction/audit record or resulting-event link |
-| ConferenceAttendee | User/event relation, attending/considering field, unique pair and cascading deletion |
+| Account / Session / VerificationToken | OAuth/database sessions; account deletion cascades |
+| MembershipReview | Membership decision audit with deletion redaction |
+| ContactRequest | Directed consent-based introduction with limited disclosure |
+| Conference | Date-only start/end, venue timezone, timed CFP, source URL, separate fetched/reviewed metadata, publication/demo state |
+| ConferenceSuggestion | Submitted facts, timezone/CFP and pending/approved/rejected review; acceptance creates a draft |
+| ConferenceRevision | Before/after snapshot, actor, source, reason/time; protected curator-only history and draft restore |
+| ConferenceAttendee | Unique user/event pair, status, validated role and optional paper title |
 
-The foundation migration enforces member/contact status sets and foreign-key/uniqueness rules. Event publication/suggestion status, date ordering, edition identity and provenance need stronger end-to-end guarantees; a source timestamp is not proof of human review.
+Manual edits record their revision in the same transaction. Unconfirmed edits clear previous review; publishing needs source/review evidence. Optimistic edit checks reject stale forms. Restoring a version clears review and returns it to draft while preserving attendance. Only unreviewed drafts with no history or attendance may be hard-deleted; other records are archived.
 
-The second migration uses `ALTER TABLE ... ADD COLUMN ... DEFAULT CURRENT_TIMESTAMP`; an in-memory populated-table check reproduced SQLite rejection. Empty-database migration success does not establish a safe upgrade of retained conferences. H2 requires a compatible rebuild/backfill and migration-history-aware rehearsal before applying it to existing data.
-
-Deleting a member removes their identity, evidence, sessions, attendance and contacts, redacts identifying target review notes, and preserves last-admin continuity. Event deletion can also cascade attendance; seed cleanup is therefore not harmless.
+The older conference migration was rewritten under its existing name; P2C still needs actual lineage inventory and supported repair. The new forward review migration adds metadata/history and returns existing non-demo publications to draft because old source timestamps did not establish human review. It records prior publication state and preserves IDs, dates and RSVPs. A populated disposable rehearsal does not replace retained-history/backup acceptance.
 
 ## 5. Dataset, provenance and editorial operation
 
-Source inspection counted **27 hard-coded conference editions** in `prisma/seed.ts` and **14 entries** in the batch source registry. These are code counts, not database counts, verified sources or active-community metrics. This review did not query member data or verify event facts externally.
+Source contains three fictional fixture events, 27 catalogue candidates and 14 prototype batch source entries. These are code counts, not verified facts, database totals or adoption measures. No real event facts or member databases were inspected during this implementation.
 
-The seed still requires `ALLOW_DEMO_SEED=1`, local/test `APP_ENV`, a SQLite URL and non-production `NODE_ENV`. Inside that guard it deletes every demo-marked event (plus the old synthetic ID/acronym), overwrites matching IDs, marks entries published/non-demo and assigns a fixed 11 October 2026 check date. The older “one/three synthetic fixtures” description is obsolete. Never use it on retained event data.
+Seeds use namespaced synthetic IDs and test addresses in owned temporary databases; they skip existing event/user/email collisions and create no verified mailboxes or sessions. The catalogue importer creates unreviewed drafts, rejects `--publish` and never updates existing IDs. Sync CLIs, URL fetching and cron/scheduled execution refuse during P2; the batch prototype is exercised only with explicit deterministic test fixtures.
 
-Batch import directly creates/updates published records and can republish draft/archive matches. The parser substitutes future dates/duration when source dates are absent. Matching by shared organizer URL can conflate editions. CLI rechecks write check timestamps even without `--auto-update`.
+Curators record edition-specific source, reason and confirmation of all displayed fields before publication. Reviewer/time are server-derived, with checked fields and version snapshots. Suggestions preserve timezone/CFP values but cannot publish directly. Missing extracted dates require manual input; ticket expiry is not treated as CFP evidence.
 
-Desired H2/H6 behavior is different: draft candidates, explicit unknown values, edition-specific sources, fetched-versus-reviewed dates, human decisions, preserved overrides and traceable corrections. Rich descriptions, consortium agendas and travel logistics need evidence. Neither “tier-1” nor a “Verified” badge establishes quality or fact accuracy; journal rankings must not be translated into conference rankings.
+Proposed pilot: 10–20 externally verified event editions and 15–25 consenting members. No recruitment, source verification or participation is claimed by the code update.
 
-The proposed pilot remains 10–20 curator-verified events and 15–25 consenting members. No recruitment or verified participation is claimed.
+## 6. Security and privacy
 
-## 6. Security, privacy and release blockers
+Session-derived ownership, current membership/roles, private directory defaults, safe projections and contact consent remain enforced. Academic mailbox evidence does not establish doctoral affiliation or institutional endorsement.
 
-The strongest inherited controls are session-derived ownership, live membership checks, private-by-default consent, safe directory projections, guarded contact disclosure and account deletion. Auth configuration fails closed when incomplete; production sign-in requires HTTPS. Browser fixtures are database sessions, not a runtime bypass.
+P2A removed development login and retires its old predictable tokens on session reads; no retained users/sessions were deleted. Both seeds validate environment, marker, owner and exact disposable target before constructing Prisma.
 
-New event tooling has specific gaps:
+P2B enforces manual review at publication and disables real ingestion at server/command boundaries. It removes the incomplete HTTP transport rather than enabling it with an environment switch. P3 must implement address-bound, fully bounded transport before reintroducing fetching.
 
-- Quick-fetch preview lacks an action-level curator check and fetches arbitrary HTTP(S) destinations with automatic redirects; it can also return matched draft fields.
-- Fetching has a timeout but no demonstrated private-network/redirect destination policy or bounded body handling. Client reconciliation payloads bypass the normal event validator.
-- Cron accepts unauthenticated non-production calls when its secret is unset, accepts query-string secrets and mutates on GET.
-- Node startup schedules ingestion after ten seconds outside `NODE_ENV=test`; `APP_ENV=test` alone does not disable it. No supported off switch or cross-run lock exists.
-- Imports/seeds assign publication/check status without the required human provenance; direct RSVP does not enforce event lifecycle state.
+Participation roles/titles appear only for approved, visible profiles to approved members. The form explains that sharing boundary. Own-RSVP management masks unpublished event facts and never exposes another member's attendance. Calendar exports include no profiles, attendance or contacts; success/error responses use private/no-store, so publication withdrawal requires a fresh authorization check.
 
-These are source-inspected findings, not fixes applied by this planning pass. H1–H4 define testable remediation. Earlier dependency advisories are historical unresolved risk, to be reassessed before release. Production OAuth, deployment and comprehensive accessibility/security verification remain unverified.
+No comprehensive security/accessibility certification, live OAuth, current dependency clearance or real TLS deployment acceptance is claimed.
 
 ## 7. Setup, operations and recovery
 
-Read [GETTING_STARTED.md](GETTING_STARTED.md) before executing commands: ordinary app startup now has ingestion side effects. Use disposable data until startup/import/migration safety is repaired. Do not use a copied production member DB for experimentation.
+[GETTING_STARTED.md](GETTING_STARTED.md) documents disposable fixtures and the curator review workflow. Keep separate local/test/staging/production data and credentials. The wrapper supplies its own marked database and forces scheduler off; runtime P2 gates also deny conference-source requests even with legacy enable settings.
 
-The migration wrapper creates a missing SQLite file exclusively and never truncates it; the actual migration SQL still needs populated-upgrade repair. Test/build/browser wrappers override DB/auth settings and own temporary databases, but event tests and browser startup currently contact external sources. A temporary DB does not make those tests deterministic.
+Backup/restore tooling exists, but its live-writer/WAL safety, atomic replacement and rollback still need P2C work. Use protected off-volume backups and rehearse exclusive recovery. Proposed 24-hour data-loss/four-hour restore targets await timed staging acceptance.
 
-Keep separate local/test/staging/production credentials and volumes. Before any retained-data migration, take a consistent SQLite backup and rehearse restoration. Recovery targets of 24 hours of data loss/four hours to restore are proposals pending operator demonstration. Preserve the earlier Git stash, duplicate local files, and sibling deployments until their owner approves cleanup.
+Current local checks are in the evidence ledger. Historical 38/10 and 62/14 counts remain historical. Exact-release-SHA clean install/CI, real OAuth, retained-data upgrade/restore and operator sign-off remain gates.
 
-The recorded 38-test/build and ten-browser passes belong to `cfd165e`, before the nine merged commits. No current `a05f216` full-suite/build success or remote CI success is asserted.
+## 8. Roadmap and decisions
 
-## 8. Next milestones
+P2A and P2B implementation is local; proceed to P2C migration/recovery/release proof, P2D staging/provider/operations acceptance and P2E an authorized small pilot. P3 ingestion and P4 collaboration remain deferred.
 
-[PLAN.md](PLAN.md) now orders six concrete work packages: H1 ingress/startup safety; H2 populated migration, fixtures and provenance; H3 deterministic verification; H4 conference lifecycle and UX acceptance; H5 staging/pilot; H6 controlled automation and only then demand-led collaboration.
-
-Preserve the existing stack and useful implemented flows. Do not treat this documentation update as authorization to deploy, send invitations, publish unverified data, remove local files or add advanced collaboration features.
+Open choices: actual migration lineage, hosting/region/budget/domain, named operators/reviewers, branding permission, privacy/retention policy and cohort/launch authorization. No deployment, invitations, real-data import or user-file cleanup occurred.

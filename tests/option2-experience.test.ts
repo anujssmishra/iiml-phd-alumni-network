@@ -59,7 +59,7 @@ test("Option 2 — Conference Experience Enhancements (Calendar ICS & Attendee R
     assert.ok(ics.includes("BEGIN:VEVENT\r\n"));
     assert.ok(ics.includes("SUMMARY:ICIS 2027 - International Conference on Information Systems 2027\r\n"));
     assert.ok(ics.includes("LOCATION:Bangalore\\, India\r\n"));
-    assert.ok(ics.includes("URL:https://icis2027.aisnet.org\r\n"));
+    assert.ok(ics.includes("URL:https://icis2027.aisnet.org/\r\n"));
     assert.ok(ics.includes("DTSTART;VALUE=DATE:20271212\r\n"));
     // Multi-day DTEND should be exclusive (advanced by 1 day to 20271216)
     assert.ok(ics.includes("DTEND;VALUE=DATE:20271216\r\n"));
@@ -83,9 +83,7 @@ test("Option 2 — Conference Experience Enhancements (Calendar ICS & Attendee R
     const fd2 = new FormData();
     fd2.set("role", "super_keynote_speaker");
     fd2.set("paperTitle", "");
-    const d2 = parseAttendanceDetails(fd2);
-    assert.equal(d2.role, "attendee");
-    assert.equal(d2.paperTitle, null);
+    assert.throws(() => parseAttendanceDetails(fd2), /listed participation role/);
 
     // Doctoral consortium fellow
     const fd3 = new FormData();
@@ -99,9 +97,7 @@ test("Option 2 — Conference Experience Enhancements (Calendar ICS & Attendee R
     const fd4 = new FormData();
     fd4.set("role", "chair_discussant");
     fd4.set("paperTitle", "A".repeat(400));
-    const d4 = parseAttendanceDetails(fd4);
-    assert.equal(d4.role, "chair_discussant");
-    assert.equal(d4.paperTitle?.length, 300);
+    assert.throws(() => parseAttendanceDetails(fd4), /300 characters/);
   });
 
   await t.test("setAttendance persists and updates participation role and paper title in DB", async () => {

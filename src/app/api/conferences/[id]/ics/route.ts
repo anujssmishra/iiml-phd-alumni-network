@@ -18,9 +18,9 @@ export async function GET(
     conference = await getConferenceDetail(userId, id);
   } catch (error) {
     if (error instanceof NetworkError && error.status === 404) {
-      return new Response("Conference not found", { status: 404 });
+      return new Response("Conference not found", { status: 404, headers: { "Cache-Control": "private, no-store" } });
     }
-    return new Response("Internal Server Error", { status: 500 });
+    return new Response("Internal Server Error", { status: 500, headers: { "Cache-Control": "private, no-store" } });
   }
 
   const ics = generateConferenceICal({
@@ -46,9 +46,8 @@ export async function GET(
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": `attachment; filename="${slug || "conference"}.ics"`,
-      "Cache-Control": conference.publicationState === "published"
-        ? "public, max-age=3600, s-maxage=3600"
-        : "private, no-cache",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

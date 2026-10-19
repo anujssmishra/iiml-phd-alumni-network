@@ -29,6 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Link>
             <nav className="site-nav" aria-label="Main navigation">
               <Link href="/conferences">Conferences</Link>
+              {approved && <Link href="/conferences/attendance">My RSVPs</Link>}
               {approved && <Link href="/directory">Directory</Link>}
               {approved && <Link href="/contacts">Contact requests</Link>}
               {user && <Link href="/profile">{approved ? "My profile" : "Privacy controls"}</Link>}

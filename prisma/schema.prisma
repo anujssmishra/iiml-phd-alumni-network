@@ -49,6 +49,8 @@ model User {
   contactRequestsReceived ContactRequest[] @relation("ContactRecipient")
   conferencesCurated      Conference[] @relation("ConferenceCurator")
   conferenceSuggestions   ConferenceSuggestion[] @relation("ConferenceSubmitter")
+  conferenceRevisions     ConferenceRevision[] @relation("ConferenceRevisionActor")
+  conferencesReviewed     Conference[] @relation("ConferenceReviewer")
 
   @@index([membershipStatus, directoryVisible, current_institution])
 }
@@ -137,11 +139,17 @@ model Conference {
   url              String?
   sourceUrl        String?
   sourceCheckedAt  DateTime?
+  sourceFetchedAt  DateTime?
+  reviewedAt       DateTime?
+  reviewedById     String?
+  reviewedFields   String?
   curatorId        String?
   isDemo           Boolean  @default(false)
 
   attendees        ConferenceAttendee[]
   curator          User?    @relation("ConferenceCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+  revisions        ConferenceRevision[]
+  reviewer         User? @relation("ConferenceReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -156,6 +164,8 @@ model ConferenceSuggestion {
   acronym     String?
   startDate   DateTime
   endDate     DateTime
+  timezone    String   @default("UTC")
+  cfpDeadline DateTime?
   location    String
   description String?
   url         String
@@ -167,6 +177,21 @@ model ConferenceSuggestion {
   updatedAt   DateTime @updatedAt
 
   @@index([status, createdAt])
+}
+
+model ConferenceRevision {
+  id           String   @id @default(cuid())
+  conferenceId String
+  actorId      String?
+  reason       String
+  sourceUrl    String?
+  beforeJson   String?
+  afterJson    String
+  createdAt    DateTime @default(now())
+  conference   Conference @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  actor        User? @relation("ConferenceRevisionActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([conferenceId, createdAt])
 }
 
 model ConferenceAttendee {

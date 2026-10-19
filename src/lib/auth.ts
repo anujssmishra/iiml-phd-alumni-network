@@ -14,8 +14,18 @@ export function getAuthConfiguration(): { enabled: boolean; reason: string | nul
   return { enabled: true, reason: null };
 }
 
+const databaseAdapter = PrismaAdapter(prisma);
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: {
+    ...databaseAdapter,
+    async getSessionAndUser(sessionToken) {
+      // Retire tokens minted by the removed local shortcut without deleting
+      // retained users or sessions. This also protects the NextAuth session API.
+      if (sessionToken.startsWith("dev-session-") || sessionToken === "dev-test-session-token") return null;
+      return databaseAdapter.getSessionAndUser!(sessionToken);
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "database", maxAge: 7 * 24 * 60 * 60 },
   providers: getAuthConfiguration().enabled ? [GoogleProvider({

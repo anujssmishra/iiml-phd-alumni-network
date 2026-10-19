@@ -1,28 +1,32 @@
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { createFixtureDatabase } from "./fixture-database.mjs";
 
 const mode = process.argv[2];
 if (!["test", "build", "browser"].includes(mode)) {
   throw new Error("Expected test, build, or browser mode.");
 }
+const productionBrowser = mode === "browser" && process.env.BROWSER_SERVER_MODE === "production";
 
 // Every verification run owns a fresh database. Ambient .env or shell values
 // cannot redirect migrations, test writes, or prerendering at member data.
-const databaseDirectory = await mkdtemp(join(tmpdir(), "iiml-network-check-"));
+const { directory: databaseDirectory, databaseUrl } = await createFixtureDatabase(true);
 const environment = {
   ...process.env,
   APP_ENV: "test",
-  NODE_ENV: mode === "build" ? "production" : mode === "browser" ? "development" : "test",
-  DATABASE_URL: `file:${join(databaseDirectory, "verification.db")}`,
-  NEXTAUTH_URL: "http://127.0.0.1:3100",
+  NODE_ENV: mode === "build" || productionBrowser ? "production" : mode === "browser" ? "development" : "test",
+  DATABASE_URL: databaseUrl,
+  FIXTURE_DATABASE_DIR: databaseDirectory,
+  NEXTAUTH_URL: productionBrowser ? "https://127.0.0.1:3100" : "http://127.0.0.1:3100",
   NEXTAUTH_SECRET: randomBytes(48).toString("base64url"),
   GOOGLE_CLIENT_ID: "isolated-check.apps.googleusercontent.com",
   GOOGLE_CLIENT_SECRET: "isolated-check-not-a-real-secret",
   ACADEMIC_EMAIL_DOMAINS: "iiml.ac.in",
   ALLOW_DEMO_SEED: "0",
+  ALLOW_DEV_SEED: "0",
+  ENABLE_AUTO_CONFERENCE_SYNC: "0",
   NEXT_TELEMETRY_DISABLED: "1",
 };
 
