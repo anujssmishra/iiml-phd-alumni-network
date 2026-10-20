@@ -1,5 +1,7 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Register lifetime access before this server accepts any requests.
+    await import("@/lib/prisma");
     // Retained flag compatibility: the scheduler itself refuses all ingestion
     // throughout P2, including when an older environment enables this flag.
     const isOptedIn =

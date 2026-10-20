@@ -1,6 +1,6 @@
 # Local setup and verification
 
-Updated 19 October 2026 · Source baseline `b404710` plus local P2A–P2B implementation. Node 24/npm, Next.js/React, Google NextAuth database sessions, Prisma and SQLite are the supported baseline. See [PLAN.md](PLAN.md) and [implementation evidence](docs/IMPLEMENTATION_CHECKS.md).
+Updated 19 October 2026 · Source baseline merged `736aecb` plus local P2C recovery/lineage work. Node 24/npm, Next.js/React, Google NextAuth database sessions, Prisma and SQLite are the supported baseline. See [PLAN.md](PLAN.md) and [implementation evidence](docs/IMPLEMENTATION_CHECKS.md).
 
 ## 1. Install and configure
 
@@ -41,7 +41,7 @@ ENABLE_AUTO_CONFERENCE_SYNC=0 npm run dev
 
 `DATABASE_URL="file:./dev.db"` resolves under `prisma/`; use an explicit absolute path when the target would be ambiguous. The migration wrapper creates missing files exclusively and never truncates existing ones.
 
-There are four migrations. The older conference migration was rewritten under an existing name; retained databases with applied/failed histories require P2C lineage rehearsal/repair. The new review migration returns non-demo published listings to draft and records their old state while preserving facts/RSVPs; they require explicit source review before republication. No retained database was migrated by this implementation. Do not reset retained data or blindly resolve migrations.
+There are four migrations. `npm run db:lineage` inventories existing migration metadata read-only; `db:migrate` refuses unknown checksums, unresolved failures and schema drift before deployment. The older conference migration was rewritten under an existing name. `db:repair-lineage -- --inspect` recognizes only pinned original-applied/single-failed states; its explicit offline operation prepares a verified candidate copy without replacing the source or deploying pending SQL. Follow [the full repair procedure](docs/DATABASE_RECOVERY.md) and obtain authority before retained-data use or installation. The new review migration returns non-demo published listings to draft, recording old state while preserving facts/RSVPs; they require explicit source review before republication. No retained database was migrated by this implementation. Do not reset data or blindly resolve migrations.
 
 ## 3. Repeating fixture seeds
 
@@ -92,34 +92,38 @@ Approved members can use My RSVPs to cancel after archive; the page masks unpubl
 | `sync:conferences`, including `--auto-update` | Refuses before database/network activity. |
 | `sync:auto-conferences` / URL quick-fetch / cron / scheduler | Runtime execution refuses; authenticated curators enter source facts manually. |
 
-The batch prototype is tested only with injected deterministic fixtures in the test runtime. Real HTTP transport was removed; it needs separate P3 implementation and review. Full verification-process network isolation remains a P2C acceptance item.
+The batch prototype is tested only with injected deterministic fixtures in the test runtime. Real HTTP transport was removed; it needs separate P3 implementation and review. [Offline verification](docs/OFFLINE_VERIFICATION.md) now layers Node/browser guards with child-only OS network isolation; exact-candidate/CI proof remains required.
 
 ## 7. Verification
 
 Run isolated checks with Node 24:
 
 ```sh
-npm run check
 npx playwright install chromium
-BROWSER_APP_ENV=local npm run test:e2e
+npm run verify:offline -- check
+BROWSER_APP_ENV=local npm run verify:offline -- browser
 ```
 
-The wrapper creates a unique marked database, supplies synthetic auth settings, disables fixture opt-ins and scheduler, and removes only its owned directory. Tests can explicitly enable fixtures inside that isolated target. Full denial of source-network access remains a P2C check; fixture-driven ingestion logs are not proof of live-source verification.
+The wrapper creates a unique marked database, supplies synthetic auth settings, disables fixture opt-ins and scheduler, and removes only its owned directory. Tests can explicitly enable fixtures inside that isolated target. Strict verification requires macOS sandbox-exec or Linux user/network namespaces with util-linux/iproute2; recovery tests require lsof. It refuses unavailable isolation instead of retrying unconfined. Install/download commands run before isolation. See [the boundary and evidence limits](docs/OFFLINE_VERIFICATION.md); fixture-driven ingestion logs are not proof of live-source verification.
+
+Ordinary `npm run check`/`npm run test:e2e` still work with the cooperative Node/browser guards but do not prove native-child isolation. A forbidden attempt fails even when caught by the caller; failed runs retain a private destination-free ledger. Next's upgrade reminder is disabled only in guarded verification, with [the separate dependency audit](docs/DEPENDENCY_REVIEW.md) still required. The 20 October scoped remediation reports zero full/omit-dev findings; no risk waiver is implied. Keep the pinned ESLint compatibility adapter and Prisma override under review when updating dependencies.
 
 The browser harness defaults to a development server. After `npm run build`, these focused production regressions exercise sign-in and the P2B workflows:
 
 ```sh
-BROWSER_SERVER_MODE=production BROWSER_APP_ENV=local npm run test:e2e -- tests/browser/signin.spec.ts tests/browser/p2b.spec.ts
+BROWSER_SERVER_MODE=production BROWSER_APP_ENV=local npm run verify:offline -- browser tests/browser/signin.spec.ts tests/browser/p2b.spec.ts tests/browser/p2c.spec.ts tests/browser/offline.spec.ts
 ```
 
 For production-mode test configuration only, the harness supplies an HTTPS authentication origin while serving loopback HTTP; this exercises compiled application workflows, not deployed TLS or a live Google callback. Calendar exports also round-trip through the independent ICAL.js test parser; no external calendar account was modified.
 
-Duplicate generated files ending in ` 2.ts` under `.next/` are excluded from TypeScript checks; canonical generated declarations remain checked and all copies are preserved.
+Numbered generated type copies under `.next/` are excluded from TypeScript checks; canonical generated declarations remain checked and all copies are preserved. External duplicate creation has continued beyond ` 2.ts`; no user copies were deleted.
 
 See the evidence ledger for actual local results. Remote CI for a release SHA, real OAuth, source facts and deployment are separate evidence.
 
 ## 8. Recovery and deployment gates
 
-`db:backup` uses SQLite VACUUM INTO and integrity checking. `db:restore` does not yet establish writer exclusion or a WAL-consistent safety snapshot before replacement. P2C must prove offline maintenance, atomic replacement, rollback and path handling before retained-data use.
+Read [DATABASE_RECOVERY.md](docs/DATABASE_RECOVERY.md) before using recovery commands. Linux/macOS offline recovery requires Node 24, `lsof`, private owned directories (`0700`), intact standalone snapshots, and all clients/automatic restarts stopped. Application and writing CLIs hold lifetime leases; restore refuses even an idle running server.
+
+`npm run db:backup -- "/absolute/private-backups/snapshot.db"` creates a quote-safe, verified, owner-only consistent snapshot without overwriting an existing file. `npm run db:restore -- "/absolute/private-backups/snapshot.db" --offline` validates stopped clients, retains a WAL-inclusive safety snapshot and manifest, and atomically replaces/validates the active database. Handled replacement failures roll back; interruption or failed rollback retains the maintenance marker for operator review. Never delete WAL/SHM or steal the marker to force recovery. This is locally tested tooling, not authorization to restore retained data or proof of timed staging recovery.
 
 Retain one persistent Node server, separate absolute DB paths/secrets/OAuth clients/HTTPS origins, protected off-volume backups and storage outside release directories. See [hosting](docs/HOSTING_DECISION.md). P2D verifies real OAuth/HTTPS/session behavior and timed recovery; P2E requires reviewed events and authorized invitations.

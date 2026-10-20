@@ -1,8 +1,8 @@
 # IIM PhD & FPM Alumni Network — Project Overview
 
-Version 1.5 · Updated 19 October 2026 · Baseline `b404710` plus local P2A–P2B implementation.
+Version 1.7 · Updated 20 October 2026 · Baseline merged `736aecb` plus P2C release-candidate work.
 
-P2A development safety and P2B manual curation are implemented locally. Continue with P2C migration/recovery/release proof. Local evidence is recorded separately from real OAuth, retained-data histories, external event facts and deployment in [IMPLEMENTATION_CHECKS.md](docs/IMPLEMENTATION_CHECKS.md). The execution contract is [PLAN.md](PLAN.md).
+P2A development safety and P2B manual curation are merged. P2C adds recovery, fail-closed lineage inventory, bounded legacy candidate-copy repair and [offline verification](docs/OFFLINE_VERIFICATION.md). [Dependency remediation](docs/DEPENDENCY_REVIEW.md) reports zero full/omit-dev findings using scoped compatibility-tested replacements, retaining Next/Prisma versions. Authorized actual-lineage acceptance and exact-candidate/matching Linux CI remain distinct gates. Evidence is separate from real OAuth, retained-data histories, external facts and deployment in [IMPLEMENTATION_CHECKS.md](docs/IMPLEMENTATION_CHECKS.md). The execution contract is [PLAN.md](PLAN.md).
 
 The café reference's eight-part structure, small-pilot approach and human editorial operation remain represented by the [planning skill](skills/community-platform-planning/SKILL.md).
 
@@ -79,7 +79,7 @@ The 24 untracked repository `* 2` copies and earlier stash remain preserved. Dup
 
 Manual edits record their revision in the same transaction. Unconfirmed edits clear previous review; publishing needs source/review evidence. Optimistic edit checks reject stale forms. Restoring a version clears review and returns it to draft while preserving attendance. Only unreviewed drafts with no history or attendance may be hard-deleted; other records are archived.
 
-The older conference migration was rewritten under its existing name; P2C still needs actual lineage inventory and supported repair. The new forward review migration adds metadata/history and returns existing non-demo publications to draft because old source timestamps did not establish human review. It records prior publication state and preserves IDs, dates and RSVPs. A populated disposable rehearsal does not replace retained-history/backup acceptance.
+The older conference migration was rewritten under its existing name. P2C now supplies pinned candidate-copy normalization/reconciliation for exact original-applied/single-failed states, with transaction and preservation checks; actual retained inventory/use still needs operator authority. The forward review migration adds metadata/history and returns existing non-demo publications to draft because old source timestamps did not establish human review. It records prior state and preserves IDs, dates and RSVPs. A populated disposable rehearsal does not replace retained-history/backup acceptance.
 
 ## 5. Dataset, provenance and editorial operation
 
@@ -107,12 +107,12 @@ No comprehensive security/accessibility certification, live OAuth, current depen
 
 [GETTING_STARTED.md](GETTING_STARTED.md) documents disposable fixtures and the curator review workflow. Keep separate local/test/staging/production data and credentials. The wrapper supplies its own marked database and forces scheduler off; runtime P2 gates also deny conference-source requests even with legacy enable settings.
 
-Backup/restore tooling exists, but its live-writer/WAL safety, atomic replacement and rollback still need P2C work. Use protected off-volume backups and rehearse exclusive recovery. Proposed 24-hour data-loss/four-hour restore targets await timed staging acceptance.
+P2C adds quote-safe private snapshots, managed-client leases, mandatory open-handle checks, offline exclusion, WAL-consistent safety, atomic replacement and handled rollback. Interrupted/failed rollback retains the marker/evidence. See [the recovery procedure and supported-host boundary](docs/DATABASE_RECOVERY.md). Lineage inventory is read-only; deployment refuses unsupported history. Explicit legacy repair modifies only a verified candidate copy and reconciles pinned metadata after actual normalization/preservation checks. Actual installation, protected off-volume copies and proposed 24-hour data-loss/four-hour restore targets await authorized staging/operator acceptance.
 
 Current local checks are in the evidence ledger. Historical 38/10 and 62/14 counts remain historical. Exact-release-SHA clean install/CI, real OAuth, retained-data upgrade/restore and operator sign-off remain gates.
 
 ## 8. Roadmap and decisions
 
-P2A and P2B implementation is local; proceed to P2C migration/recovery/release proof, P2D staging/provider/operations acceptance and P2E an authorized small pilot. P3 ingestion and P4 collaboration remain deferred.
+P2A and P2B are merged; P2C recovery/lineage/legacy-copy repair, offline verification and dependency remediation are implemented. Complete clean-install exact-candidate/matching Linux CI and authorized retained-lineage acceptance, then P2D staging/provider/operations acceptance and P2E an authorized small pilot. P3 ingestion and P4 collaboration remain deferred.
 
 Open choices: actual migration lineage, hosting/region/budget/domain, named operators/reviewers, branding permission, privacy/retention policy and cohort/launch authorization. No deployment, invitations, real-data import or user-file cleanup occurred.

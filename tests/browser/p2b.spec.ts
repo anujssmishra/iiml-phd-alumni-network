@@ -1,4 +1,5 @@
-import { expect, test, type BrowserContext } from "@playwright/test";
+import type { BrowserContext } from "@playwright/test";
+import { expect, test } from "./offline-fixture";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import ICAL from "ical.js";

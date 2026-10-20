@@ -1,4 +1,5 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
+import { expect, test } from "./offline-fixture";
 import { PrismaClient } from "@prisma/client";
 
 if (process.env.APP_ENV !== "test" || !process.env.DATABASE_URL?.includes("iiml-network-check-")) throw new Error("Run with npm run test:e2e to use an isolated database.");

@@ -1,6 +1,6 @@
 # Delivery plan: P2 secure release candidate and closed pilot
 
-Updated 19 October 2026 · Source baseline: `b404710` plus local P2A–P2B implementation. No deployment.
+Updated 19 October 2026 · Source baseline: merged `736aecb` plus local P2C recovery/lineage work. No deployment.
 
 ## Outcome and evidence
 
@@ -60,14 +60,18 @@ The new forward migration records previous publication state and returns non-dem
 
 ## P2C — Prove upgrades, recovery and release checks
 
-**Release blocker.** A rebuilt migration and recovery scripts are present, but retained-data histories and concurrent-write recovery remain unproven.
+**Release acceptance remains gated.** Offline recovery, fail-closed lineage inventory and pinned legacy candidate-copy repair are implemented and covered by disposable fixtures. [Layered offline verification](docs/OFFLINE_VERIFICATION.md) adds child-only OS and Node/browser controls. [The 20 October remediation](docs/DEPENDENCY_REVIEW.md) removes both affected dependency chains with tested scoped overrides and zero full/omit-dev findings; no waiver or framework/ORM major change was applied. Authorized retained-history acceptance and exact-candidate/matching Linux CI remain distinct gates. See [the recovery runbook](docs/DATABASE_RECOVERY.md).
 
 1. Inventory migration lineage without changing retained data. The conference migration was rewritten in place since `2ebd685`; distinguish fresh databases, populated foundation-only databases, already-applied older SQL and failed migrations. Specify a supported forward repair/checksum reconciliation for each actual lineage. Never reset retained data or blindly mark a migration applied.
 2. Rehearse these upgrades on disposable populated fixtures, preserving IDs, legacy dates, member relations, attendance and roles/paper titles. Verify the intentional P2B downgrade of unreviewed non-demo publications to draft and its before/after audit; preserve all other publication states. Check foreign keys and rollback/restore.
 3. Make restore an offline/exclusive maintenance operation: prove writers stopped, take a consistent safety snapshot (including committed WAL state), validate distinct paths and backup integrity, replace atomically, and preserve rollback on failure. Do not treat copying an active main DB then deleting WAL/SHM as safe recovery. Handle quoted backup paths and exclude all recovery snapshots from Git.
-4. Finish test/build isolation independent of ambient settings: P2A forces scheduler off even when shell or dotenv configuration enables it; still prove source-network denial in deterministic runs. Keep live-source checks separate and opt-in. The browser harness now supports production mode for sign-in and P2B curator/cancellation/calendar flows; complete deployment-specific navigation/cache acceptance and record the candidate SHA.
+4. Verify test/build isolation independent of ambient settings: the harness forces scheduler off, denies Node DNS/HTTP/socket attempts, and confines native children through a separate OS boundary. Browser contexts, WebSockets, service workers and an owned deny proxy restrict intended traffic to the fixture. Run `verify:offline` and require zero forbidden workload attempts; keep downloads/audits/live-source checks separate. macOS validation does not certify the Linux CI path. Complete deployment-specific navigation/cache acceptance and record the candidate SHA.
 5. From a clean disposable checkout, record the exact candidate SHA, Node/npm versions, clean install, Prisma validation/generation, lint, typecheck, all offline tests, isolated production build, development/production browser runs and dependency-audit decisions. Require a successful GitHub Actions run for the same SHA; workflow existence is not success.
-6. Preserve the 24 untracked `* 2` files and earlier stash. Resolve ownership separately; do not include them in the release or delete them to achieve a clean checkout.
+6. Preserve the original 24 untracked `* 2` files, subsequently appearing numbered copies and earlier stash. Resolve ownership separately; do not include them in the release or delete them to achieve a clean checkout.
+
+Current slice: lifetime app/CLI leases and mandatory process/open-handle checks refuse restore while clients run, including idle/startup clients. A private marker excludes new managed clients. Verified quote-safe backups and WAL-inclusive safety snapshots are owner-restricted; replacement and handled rollback use same-filesystem atomic renames. Interruption/failed rollback keeps the marker and recovery evidence. SQLite manages sidecar checkpoint/cleanup; scripts do not delete WAL/SHM. These guarantees require the single-host, controlled-client offline procedure; arbitrary bypass processes are unsupported.
+
+`db:lineage` inventories metadata read-only; `db:migrate` refuses checksum mismatch, unresolved failures, unmanaged/drifted schema or invalid foreign keys. Fresh and populated current-checksum foundation histories upgrade in fixtures. `db:repair-lineage` recognizes exact pinned original-applied or single-failed states and prepares a separately verified copy under offline exclusion. It preserves application records and diagnostic history, normalizes schema and reconciles only the proven metadata transactionally; it never replaces the source or applies pending migrations. Synthetic installation/review-migration/rollback is rehearsed; actual retained use needs separate authority. Unknown states still refuse. New numbered duplicate files and the earlier stash remain preserved; only generated type copies are excluded from declaration checks.
 
 **Exit evidence:** all supported migration histories and recovery failure cases pass on disposable data; zero unintended source requests/background imports occur; release record links exact-SHA local/CI results and accepted dependency risks. Record counts from actual runs, not the historical 62/14 report.
 
@@ -102,6 +106,6 @@ P4 follows demonstrated demand: co-authorship posts, mentorship and opt-in match
 
 ## Next smallest implementation slice
 
-Proceed to **P2C**: inventory supported migration histories using disposable fixtures, make backup/restore exclusive and recoverable, and record clean release/CI/dependency evidence. Start with the recovery implementation and legacy migration-lineage rehearsal. P2A–P2B local results are in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
+Finish **P2C acceptance** with clean-checkout exact-candidate verification, successful matching Linux CI and authorized retained-lineage acceptance. [Dependency remediation](docs/DEPENDENCY_REVIEW.md) now has scoped compatibility regressions and zero current full/omit-dev findings; keep the pinned adapter/override contract under review. Git publishing works, but CI reading currently needs restored GitHub CLI/connector access. No retained database target/operator is identified; do not guess it, reset data or blindly resolve checksums. Use [the strict offline commands](docs/OFFLINE_VERIFICATION.md). Results and access requirements are in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
 
 The original planning pass changed documentation only. P2A–P2B execution modifies application/fixture/curation/test code and uses disposable verification databases. Real OAuth, event fact-checking, retained-data operations, deployment and recruitment remain outstanding.

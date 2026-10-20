@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
+import { acquireDatabaseAccess } from "./database-access.mjs";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
@@ -17,6 +18,7 @@ async function main() {
     throw new Error("APP_ENV must identify the intended local, test, staging, or production database.");
   }
 
+  const release = acquireDatabaseAccess();
   const prisma = new PrismaClient();
   try {
     await prisma.$transaction(async (transaction) => {
@@ -57,6 +59,7 @@ async function main() {
     console.log(`Initial administrator approved for ${email}.`);
   } finally {
     await prisma.$disconnect();
+    release();
   }
 }
 

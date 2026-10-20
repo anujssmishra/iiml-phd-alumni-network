@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { existsSync } from "node:fs";
 import { requireFixtureDatabase } from "./fixture-database.mjs";
+import { acquireDatabaseAccess } from "./database-access.mjs";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
@@ -13,6 +14,7 @@ const USER_FIXTURES = [
 
 async function main() {
   requireFixtureDatabase("ALLOW_DEV_SEED");
+  const release = acquireDatabaseAccess();
   const prisma = new PrismaClient();
   try {
     let created = 0;
@@ -29,6 +31,7 @@ async function main() {
     console.log(`Created ${created} synthetic private profiles; existing identities were preserved. No OAuth accounts, verified mailboxes, sessions or attendance were created.`);
   } finally {
     await prisma.$disconnect();
+    release();
   }
 }
 
