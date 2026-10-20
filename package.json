@@ -7,6 +7,14 @@
     "npm": ">=10"
   },
   "packageManager": "npm@10.7.0",
+  "overrides": {
+    "@next/eslint-plugin-next@16.4.0": {
+      "fast-glob": "npm:tinyglobby@0.2.17"
+    },
+    "@prisma/config@6.19.3": {
+      "deepmerge-ts": "8.0.2"
+    }
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "node scripts/isolated-database.mjs build",
@@ -16,6 +24,8 @@
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:lineage": "node scripts/migration-lineage.mjs",
+    "db:repair-lineage": "node scripts/repair-lineage.mjs",
     "db:fixtures": "node scripts/create-fixture-database.mjs",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:dev": "tsx scripts/seed-local-dev.ts",
@@ -27,6 +37,7 @@
     "import:catalogue": "tsx scripts/import-catalogue.ts",
     "test": "node scripts/isolated-database.mjs test",
     "test:e2e": "node scripts/isolated-database.mjs browser",
+    "verify:offline": "node scripts/offline-run.mjs",
     "check": "npm run db:generate && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

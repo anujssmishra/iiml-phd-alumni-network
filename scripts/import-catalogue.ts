@@ -1,10 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { existsSync } from "node:fs";
 import { CATALOGUE_CONFERENCES } from "../src/lib/catalogue-data";
+import { acquireDatabaseAccess } from "./database-access.mjs";
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 async function main() {
   if (process.argv.includes("--publish")) throw new Error("Catalogue imports create drafts only. Review each edition manually before publication.");
+  const release = acquireDatabaseAccess();
   const prisma = new PrismaClient();
   try {
     let created = 0;
@@ -22,6 +24,6 @@ async function main() {
       }
     });
     console.log(`Created ${created} unreviewed drafts; existing records preserved. No source checks or publication claimed.`);
-  } finally { await prisma.$disconnect(); }
+  } finally { await prisma.$disconnect(); release(); }
 }
 main().catch(() => { console.error("Catalogue import refused or failed. --publish is disabled; candidates require manual review."); process.exitCode = 1; });

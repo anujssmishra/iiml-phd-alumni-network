@@ -58,3 +58,11 @@ next-env.d.ts
 # Browser test artifacts
 /playwright-report/
 /test-results/
+
+# Private database operations, including snapshots without a .db extension
+/backups/
+*.pre-restore-*
+*.recovery-*/
+*.maintenance/
+*.access/
+.iiml-backup-stage-*/

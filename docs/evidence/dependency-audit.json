@@ -1,0 +1,411 @@
+{
+  "recordedAt": "2026-10-19T07:21:46.505Z",
+  "baseline": "736aecb plus uncommitted P2C work",
+  "node": "v24.19.0",
+  "npm": "10.7.0",
+  "platform": "darwin",
+  "lockfileSha256": "c5c30b6ab5bf65b55e034521e1cd4a08696fb12c48fa2b8088b9bd4bccb9d030",
+  "full": {
+    "exitCode": 1,
+    "report": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {
+        "@next/eslint-plugin-next": {
+          "name": "@next/eslint-plugin-next",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            "fast-glob"
+          ],
+          "effects": [
+            "eslint-config-next"
+          ],
+          "range": ">=14.3.0-canary.0",
+          "nodes": [
+            "node_modules/@next/eslint-plugin-next"
+          ],
+          "fixAvailable": {
+            "name": "eslint-config-next",
+            "version": "14.2.35",
+            "isSemVerMajor": true
+          }
+        },
+        "@prisma/config": {
+          "name": "@prisma/config",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            "deepmerge-ts"
+          ],
+          "effects": [
+            "prisma"
+          ],
+          "range": "6.13.0-dev.1 - 7.10.0 || 8.1.0-dev.1 - 8.1.0-dev.4",
+          "nodes": [
+            "node_modules/@prisma/config"
+          ],
+          "fixAvailable": {
+            "name": "prisma",
+            "version": "7.10.1",
+            "isSemVerMajor": true
+          }
+        },
+        "braces": {
+          "name": "braces",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            {
+              "source": 1240992,
+              "name": "braces",
+              "dependency": "braces",
+              "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+              "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+              "severity": "high",
+              "cwe": [
+                "CWE-674"
+              ],
+              "cvss": {
+                "score": 7.5,
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+              },
+              "range": "<=3.0.3"
+            }
+          ],
+          "effects": [
+            "micromatch"
+          ],
+          "range": "*",
+          "nodes": [
+            "node_modules/braces"
+          ],
+          "fixAvailable": {
+            "name": "eslint-config-next",
+            "version": "14.2.35",
+            "isSemVerMajor": true
+          }
+        },
+        "deepmerge-ts": {
+          "name": "deepmerge-ts",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            {
+              "source": 1145093,
+              "name": "deepmerge-ts",
+              "dependency": "deepmerge-ts",
+              "title": "DeepmergeTS has stack exhaustion when merging recursive object graphs",
+              "url": "https://github.com/advisories/GHSA-ggr8-5vv4-36mx",
+              "severity": "high",
+              "cwe": [
+                "CWE-674"
+              ],
+              "cvss": {
+                "score": 0,
+                "vectorString": null
+              },
+              "range": "<8.0.0"
+            }
+          ],
+          "effects": [
+            "@prisma/config"
+          ],
+          "range": "<8.0.0",
+          "nodes": [
+            "node_modules/deepmerge-ts"
+          ],
+          "fixAvailable": {
+            "name": "prisma",
+            "version": "7.10.1",
+            "isSemVerMajor": true
+          }
+        },
+        "eslint-config-next": {
+          "name": "eslint-config-next",
+          "severity": "high",
+          "isDirect": true,
+          "via": [
+            "@next/eslint-plugin-next"
+          ],
+          "effects": [],
+          "range": ">=14.3.0-canary.0",
+          "nodes": [
+            "node_modules/eslint-config-next"
+          ],
+          "fixAvailable": {
+            "name": "eslint-config-next",
+            "version": "14.2.35",
+            "isSemVerMajor": true
+          }
+        },
+        "fast-glob": {
+          "name": "fast-glob",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            "micromatch"
+          ],
+          "effects": [
+            "@next/eslint-plugin-next"
+          ],
+          "range": "*",
+          "nodes": [
+            "node_modules/fast-glob"
+          ],
+          "fixAvailable": {
+            "name": "eslint-config-next",
+            "version": "14.2.35",
+            "isSemVerMajor": true
+          }
+        },
+        "micromatch": {
+          "name": "micromatch",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            "braces"
+          ],
+          "effects": [
+            "fast-glob"
+          ],
+          "range": ">=0.2.0",
+          "nodes": [
+            "node_modules/micromatch"
+          ],
+          "fixAvailable": {
+            "name": "eslint-config-next",
+            "version": "14.2.35",
+            "isSemVerMajor": true
+          }
+        },
+        "prisma": {
+          "name": "prisma",
+          "severity": "high",
+          "isDirect": true,
+          "via": [
+            "@prisma/config"
+          ],
+          "effects": [],
+          "range": "6.13.0-dev.1 - 7.10.0 || 8.0.0-rc.3 - 8.1.0-dev.4",
+          "nodes": [
+            "node_modules/prisma"
+          ],
+          "fixAvailable": {
+            "name": "prisma",
+            "version": "7.10.1",
+            "isSemVerMajor": true
+          }
+        }
+      },
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 8,
+          "critical": 0,
+          "total": 8
+        },
+        "dependencies": {
+          "prod": 74,
+          "dev": 418,
+          "optional": 121,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 529
+        }
+      }
+    }
+  },
+  "omitDev": {
+    "exitCode": 1,
+    "report": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {
+        "@prisma/config": {
+          "name": "@prisma/config",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            "deepmerge-ts"
+          ],
+          "effects": [
+            "prisma"
+          ],
+          "range": "6.13.0-dev.1 - 7.10.0 || 8.1.0-dev.1 - 8.1.0-dev.4",
+          "nodes": [
+            "node_modules/@prisma/config"
+          ],
+          "fixAvailable": {
+            "name": "prisma",
+            "version": "7.10.1",
+            "isSemVerMajor": true
+          }
+        },
+        "deepmerge-ts": {
+          "name": "deepmerge-ts",
+          "severity": "high",
+          "isDirect": false,
+          "via": [
+            {
+              "source": 1145093,
+              "name": "deepmerge-ts",
+              "dependency": "deepmerge-ts",
+              "title": "DeepmergeTS has stack exhaustion when merging recursive object graphs",
+              "url": "https://github.com/advisories/GHSA-ggr8-5vv4-36mx",
+              "severity": "high",
+              "cwe": [
+                "CWE-674"
+              ],
+              "cvss": {
+                "score": 0,
+                "vectorString": null
+              },
+              "range": "<8.0.0"
+            }
+          ],
+          "effects": [
+            "@prisma/config"
+          ],
+          "range": "<8.0.0",
+          "nodes": [
+            "node_modules/deepmerge-ts"
+          ],
+          "fixAvailable": {
+            "name": "prisma",
+            "version": "7.10.1",
+            "isSemVerMajor": true
+          }
+        },
+        "prisma": {
+          "name": "prisma",
+          "severity": "high",
+          "isDirect": true,
+          "via": [
+            "@prisma/config"
+          ],
+          "effects": [],
+          "range": "6.13.0-dev.1 - 7.10.0 || 8.0.0-rc.3 - 8.1.0-dev.4",
+          "nodes": [
+            "node_modules/prisma"
+          ],
+          "fixAvailable": {
+            "name": "prisma",
+            "version": "7.10.1",
+            "isSemVerMajor": true
+          }
+        }
+      },
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 3,
+          "critical": 0,
+          "total": 3
+        },
+        "dependencies": {
+          "prod": 74,
+          "dev": 418,
+          "optional": 121,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 529
+        }
+      }
+    }
+  },
+  "lockEntries": {
+    "eslint-config-next": {
+      "version": "16.4.0",
+      "dev": true,
+      "peerDependencies": {
+        "eslint": ">=9.0.0",
+        "typescript": ">=3.3.1"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    },
+    "@next/eslint-plugin-next": {
+      "version": "16.4.0",
+      "dev": true
+    },
+    "fast-glob": {
+      "version": "3.3.1",
+      "dev": true
+    },
+    "micromatch": {
+      "version": "4.0.8",
+      "dev": true
+    },
+    "braces": {
+      "version": "3.0.3",
+      "dev": true
+    },
+    "prisma": {
+      "version": "6.19.3",
+      "devOptional": true,
+      "peerDependencies": {
+        "typescript": ">=5.1.0"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    },
+    "@prisma/config": {
+      "version": "6.19.3",
+      "devOptional": true
+    },
+    "deepmerge-ts": {
+      "version": "7.1.5",
+      "devOptional": true
+    },
+    "@prisma/client": {
+      "version": "6.19.3",
+      "peerDependencies": {
+        "prisma": "*",
+        "typescript": ">=5.1.0"
+      },
+      "peerDependenciesMeta": {
+        "prisma": {
+          "optional": true
+        },
+        "typescript": {
+          "optional": true
+        }
+      }
+    }
+  },
+  "artifactInventory": {
+    "recordedAt": "2026-10-19T07:34:34.078Z",
+    "scope": "Local .next/standalone package names and production .nft.json paths; no bundled-code reachability proof",
+    "packageManifestsScanned": 143,
+    "targetPackages": [
+      "@next/eslint-plugin-next",
+      "eslint-config-next",
+      "fast-glob",
+      "micromatch",
+      "braces",
+      "prisma",
+      "@prisma/config",
+      "deepmerge-ts"
+    ],
+    "matchedPackageManifests": [],
+    "traceManifestsScanned": 41,
+    "matchedTraces": [],
+    "skippedSymlinks": [],
+    "limitations": [
+      "Working tree artifact, not clean-checkout exact-candidate or deployed contents",
+      "Named-package/path absence does not establish bundled-code absence",
+      "Symbolic links are reported, not followed; inspect them separately",
+      "On-host migration tooling and untrusted-input reachability are not assessed"
+    ]
+  },
+  "releaseDecision": "OPEN: no remediation or risk acceptance; exact-candidate clean install and matching CI required"
+}

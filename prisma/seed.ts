@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { existsSync } from "node:fs";
 import { requireFixtureDatabase } from "../scripts/fixture-database.mjs";
+import { acquireDatabaseAccess } from "../scripts/database-access.mjs";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
@@ -14,6 +15,7 @@ const DEMO_FIXTURES = [
 async function main() {
   // Validate before constructing Prisma, so a mistaken target receives no writes.
   requireFixtureDatabase("ALLOW_DEMO_SEED");
+  const release = acquireDatabaseAccess();
   const prisma = new PrismaClient();
   try {
     let created = 0;
@@ -37,6 +39,7 @@ async function main() {
     console.log(`Created ${created} synthetic events; existing records and attendance were preserved. No identities or sessions were created.`);
   } finally {
     await prisma.$disconnect();
+    release();
   }
 }
 

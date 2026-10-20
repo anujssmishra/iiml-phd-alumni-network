@@ -1,6 +1,9 @@
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { installNextRootGlob } from "./scripts/eslint-root-glob.mjs";
+
+installNextRootGlob();
+const { default: nextVitals } = await import("eslint-config-next/core-web-vitals");
+const { default: nextTs } = await import("eslint-config-next/typescript");
 
 const eslintConfig = defineConfig([
   ...nextVitals,

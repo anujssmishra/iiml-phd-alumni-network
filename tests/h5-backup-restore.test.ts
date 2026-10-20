@@ -3,19 +3,18 @@ import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
 import { backupDatabase } from "../scripts/backup-db.mjs";
 import { restoreDatabase } from "../scripts/restore-db.mjs";
-import { existsSync, unlinkSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 test("H5 Readiness — SQLite atomic backup, restore rehearsal, and integrity verification", async (t) => {
   const prisma = new PrismaClient();
-  const tempBackupFile = join(tmpdir(), `h5-rehearsal-${Date.now()}.db`);
+  const backupDirectory = mkdtempSync(join(tmpdir(), "iiml-h5-rehearsal-"));
+  const tempBackupFile = join(backupDirectory, "snapshot.db");
 
   t.after(async () => {
     await prisma.$disconnect();
-    if (existsSync(tempBackupFile)) {
-      unlinkSync(tempBackupFile);
-    }
+    rmSync(backupDirectory, { recursive: true, force: true });
   });
 
   await t.test("step 1: populates database with rich member, conference, and attendance relations", async () => {
@@ -116,8 +115,9 @@ test("H5 Readiness — SQLite atomic backup, restore rehearsal, and integrity ve
   });
 
   await t.test("step 4: restoreDatabase recovers 100% of data, passes PRAGMA integrity_check", async () => {
-    // Execute restore from backup
-    await restoreDatabase(tempBackupFile);
+    // Recovery is offline: even idle existing connections must disconnect.
+    await prisma.$disconnect();
+    await restoreDatabase(tempBackupFile, { offline: true });
 
     // Re-verify active database contents
     const restoredPrisma = new PrismaClient();

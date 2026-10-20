@@ -1,8 +1,13 @@
 import { PrismaClient } from "@prisma/client";
+import { acquireDatabaseAccess } from "../../scripts/database-access.mjs";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  databaseLease: (() => void) | undefined;
 };
+
+// Retain access while Prisma is idle; recovery requires this process to stop.
+globalForPrisma.databaseLease ??= acquireDatabaseAccess();
 
 export const prisma =
   globalForPrisma.prisma ??

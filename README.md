@@ -2,19 +2,19 @@
 
 An independent, community-led network for IIM PhD/FPM scholars and alumni: reviewed membership, consent-based academic discovery and conference coordination. Institutional endorsement is not established.
 
-Updated 19 October 2026 · Baseline `b404710` plus local P2A–P2B implementation.
+Updated 20 October 2026 · P2C implementation accepted at `45da2c9`; published for review, not deployed.
 
 ## Current status
 
 | Area | Implemented locally | Remaining gate |
 | --- | --- | --- |
-| Membership/directory | Google identity policy, reviewed membership, private profiles, consent-based introductions, deletion | Real OAuth/staging and release verification |
+| Membership/directory | Google identity policy, reviewed membership, private profiles, consent-based introductions, deletion | Real OAuth/staging acceptance |
 | Conference curation | Source-review publication gate, correction history, restore as draft, paginated queues and timezone-aware suggestions | Actual edition fact-checking for the pilot set |
 | Attendance/calendar | Private My RSVPs cancellation after archive, participation privacy, date-only conference days, timed CFP deadlines and non-cached ICS | Deployed browser/provider acceptance |
 | Development safety | No runtime fixture login; retired legacy tokens; guarded additive disposable fixtures | Inventory prior shared-environment fixture use |
-| Recovery/automation | Backup/restore tools; URL fetching, cron execution and sync commands disabled throughout P2 | P2C migration/recovery/release proof; P3 automation controls |
+| Recovery/automation | Offline guarded restore, WAL-consistent rollback snapshots, lineage inventory and pinned legacy candidate-copy repair; real ingestion disabled throughout P2 | Hosted timed restore/rollback; P3 automation controls |
 
-P2A and P2B are implemented locally. **Next: P2C — prove migration histories, safe recovery and release verification**, followed by staging and an authorized small pilot.
+P2A and P2B are merged. **P2C implementation acceptance passed:** recovery, lineage inventory, bounded legacy candidate-copy repair and offline verification are implemented. Local and matching Linux checks passed 120 tests/build, 21 development and seven focused production browser cases. Both audits report zero findings with Next/Prisma versions unchanged. See [exact-revision evidence and PR](docs/RELEASE_ACCEPTANCE.md). The owner confirmed no retained database exists; no existing database was inspected or changed. **Next: P2D staging choices and operating sign-off**, requiring provider access, named owners and separate deployment authority.
 
 ## Start here
 
@@ -23,6 +23,9 @@ P2A and P2B are implemented locally. **Next: P2C — prove migration histories, 
 - [Setup and curator workflow](GETTING_STARTED.md): commands, fixture safeguards and review steps.
 - [Verification record](docs/IMPLEMENTATION_CHECKS.md): actual local results and remaining release evidence.
 - [Hosting decision](docs/HOSTING_DECISION.md): persistent Node/SQLite and operations.
+- [Database recovery](docs/DATABASE_RECOVERY.md): offline prerequisites, migration inventory and rollback procedure.
+- [Offline verification](docs/OFFLINE_VERIFICATION.md): child-only OS isolation and deterministic Node/browser checks.
+- [Dependency review](docs/DEPENDENCY_REVIEW.md): scoped remediation, compatibility contract and current/historical audits.
 - [Planning skill](skills/community-platform-planning/SKILL.md): reusable café-inspired method.
 
 ## Before running

@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-10-20T05:24:44.708Z",
+  "scope": "Release working tree before commit; clean exact-revision verification recorded separately",
+  "node": "v24.19.0",
+  "npm": "10.7.0",
+  "lockfileSha256": "eacb1267b437ce34e9e92b2371546278cb3382d97713b9834131b5701f1cfd27",
+  "overrides": {
+    "@next/eslint-plugin-next@16.4.0": {
+      "fast-glob": "npm:tinyglobby@0.2.17"
+    },
+    "@prisma/config@6.19.3": {
+      "deepmerge-ts": "8.0.2"
+    }
+  },
+  "full": {
+    "exitCode": 0,
+    "report": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 74,
+          "dev": 405,
+          "optional": 121,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 516
+        }
+      }
+    }
+  },
+  "omitDev": {
+    "exitCode": 0,
+    "report": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 74,
+          "dev": 405,
+          "optional": 121,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 516
+        }
+      }
+    }
+  },
+  "decision": "Both previously identified dependency chains remediated; no risk waiver or forced framework/ORM major change"
+}
