@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { createNetworkProof, networkEnvironment, assertNoNetworkAttempts } from "./verification-network.mjs";
 
@@ -29,9 +29,10 @@ if (!inside) {
       const expected = Number(process.env.VERIFICATION_EXPECT_UID);
       const status = readFileSync("/proc/self/status", "utf8");
       if (!Number.isInteger(expected) || expected <= 0 || process.getuid() !== expected
+        || !process.env.HOME || statSync(process.env.HOME).uid !== expected
         || [...status.matchAll(/^Cap(?:Inh|Prm|Eff|Bnd|Amb):\s*0+\s*$/gm)].length !== 5
         || !/^NoNewPrivs:\s*1\s*$/m.test(status)) throw new Error("CI workload did not drop to the runner with zero capabilities and no-new-privileges.");
-      console.log(`[offline] Linux workload uses original uid ${expected}, zero capabilities, and no-new-privileges.`);
+      console.log(`[offline] Linux workload uses original uid ${expected}, runner-owned home, zero capabilities, and no-new-privileges.`);
     }
     const link = spawnSync("ip", ["-json", "link", "show", "dev", "lo"], { encoding: "utf8" });
     if (link.error || link.status !== 0) throw new Error("Cannot inspect isolated loopback interface.");

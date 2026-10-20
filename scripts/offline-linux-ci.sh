@@ -7,6 +7,8 @@ if [[ "$(uname -s)" != Linux ]]; then
 fi
 verification_uid="$(id -u)"
 verification_gid="$(id -g)"
+verification_runner_user="$(id -un)"
+verification_runner_home="$(getent passwd "$verification_uid" | cut -d: -f6)"
 verification_node="$(command -v node)"
 verification_parent_namespace="$(readlink /proc/self/ns/net)"
 if [[ "$verification_uid" == 0 ]]; then
@@ -25,7 +27,9 @@ exec sudo --preserve-env=APP_ENV,DATABASE_URL,NEXTAUTH_URL,NEXTAUTH_SECRET,GOOGL
     verification_directory=$4
     verification_runtime_path=$5
     verification_parent_namespace=$6
-    shift 6
+    verification_runner_home=$7
+    verification_runner_user=$8
+    shift 8
     if [[ "$(readlink /proc/self/ns/net)" == "$verification_parent_namespace" ]]; then
       echo "Network namespace did not change." >&2
       exit 1
@@ -34,6 +38,8 @@ exec sudo --preserve-env=APP_ENV,DATABASE_URL,NEXTAUTH_URL,NEXTAUTH_SECRET,GOOGL
     cd "$verification_directory"
     exec setpriv --reuid "$verification_uid" --regid "$verification_gid" --init-groups \
       --bounding-set=-all --inh-caps=-all --ambient-caps=-all --no-new-privs \
-      env PATH="$verification_runtime_path" NODE_OPTIONS= VERIFICATION_EXPECT_UID="$verification_uid" \
+      env PATH="$verification_runtime_path" HOME="$verification_runner_home" \
+      USER="$verification_runner_user" LOGNAME="$verification_runner_user" \
+      NODE_OPTIONS= VERIFICATION_EXPECT_UID="$verification_uid" \
       "$verification_node" scripts/offline-run.mjs --inside "$@"
-  ' offline-ci "$verification_uid" "$verification_gid" "$verification_node" "$PWD" "$PATH" "$verification_parent_namespace" "$@"
+  ' offline-ci "$verification_uid" "$verification_gid" "$verification_node" "$PWD" "$PATH" "$verification_parent_namespace" "$verification_runner_home" "$verification_runner_user" "$@"
