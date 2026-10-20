@@ -33,12 +33,12 @@ jobs:
       - run: npm audit --omit=dev --audit-level=high
       - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y lsof iproute2 util-linux
       - run: npm run db:validate
-      # Fail closed if the runner cannot create a private user/network namespace.
-      # Installs and browser downloads happen outside this offline boundary.
-      - run: npm run verify:offline -- check
+      # Ubuntu restricts user namespace mapping. Create a network namespace as
+      # root, then drop UID/capabilities before Node; no host policy changes.
+      - run: bash scripts/offline-linux-ci.sh check
       - run: npx playwright install --with-deps chromium
-      - run: npm run verify:offline -- browser
-      - run: npm run verify:offline -- browser tests/browser/signin.spec.ts tests/browser/p2b.spec.ts tests/browser/p2c.spec.ts tests/browser/offline.spec.ts
+      - run: bash scripts/offline-linux-ci.sh browser
+      - run: bash scripts/offline-linux-ci.sh browser tests/browser/signin.spec.ts tests/browser/p2b.spec.ts tests/browser/p2c.spec.ts tests/browser/offline.spec.ts
         env:
           BROWSER_SERVER_MODE: production
           BROWSER_APP_ENV: local

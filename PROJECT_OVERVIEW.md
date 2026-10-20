@@ -115,4 +115,4 @@ Current local checks are in the evidence ledger. Historical 38/10 and 62/14 coun
 
 P2A and P2B are merged; P2C recovery/lineage/legacy-copy repair, offline verification and dependency remediation are implemented. Complete clean-install exact-candidate/matching Linux CI and authorized retained-lineage acceptance, then P2D staging/provider/operations acceptance and P2E an authorized small pilot. P3 ingestion and P4 collaboration remain deferred.
 
-Open choices: actual migration lineage, hosting/region/budget/domain, named operators/reviewers, branding permission, privacy/retention policy and cohort/launch authorization. No deployment, invitations, real-data import or user-file cleanup occurred.
+The owner confirmed no retained database exists on 20 October 2026; actual retained-lineage acceptance is not applicable for this candidate. Open staging choices: hosting/region/budget/domain, named operators/reviewers, branding permission, privacy/retention policy and cohort/launch authorization. No existing database inspection/change, deployment, invitations, real-data import or user-file cleanup occurred.

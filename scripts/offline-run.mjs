@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { createNetworkProof, networkEnvironment, assertNoNetworkAttempts } from "./verification-network.mjs";
 
@@ -24,7 +24,19 @@ if (!inside) {
   else if (process.platform === "linux") run("unshare", ["--user", "--map-root-user", "--net", process.execPath, resolve("scripts/offline-run.mjs"), "--inside", action, ...forwarded], environment);
   else throw new Error("OS-isolated verification supports macOS sandbox-exec or Linux user/network namespaces only.");
 } else {
-  if (process.platform === "linux") run("ip", ["link", "set", "lo", "up"]);
+  if (process.platform === "linux") {
+    if (process.env.VERIFICATION_EXPECT_UID) {
+      const expected = Number(process.env.VERIFICATION_EXPECT_UID);
+      const status = readFileSync("/proc/self/status", "utf8");
+      if (!Number.isInteger(expected) || expected <= 0 || process.getuid() !== expected
+        || [...status.matchAll(/^Cap(?:Inh|Prm|Eff|Bnd|Amb):\s*0+\s*$/gm)].length !== 5
+        || !/^NoNewPrivs:\s*1\s*$/m.test(status)) throw new Error("CI workload did not drop to the runner with zero capabilities and no-new-privileges.");
+      console.log(`[offline] Linux workload uses original uid ${expected}, zero capabilities, and no-new-privileges.`);
+    }
+    const link = spawnSync("ip", ["-json", "link", "show", "dev", "lo"], { encoding: "utf8" });
+    if (link.error || link.status !== 0) throw new Error("Cannot inspect isolated loopback interface.");
+    if (!JSON.parse(link.stdout)[0]?.flags?.includes("UP")) run("ip", ["link", "set", "lo", "up"]);
+  }
   // Probe without the JS preload: observe kernel denial, not our own mock.
   // A reserved documentation IP is used, never a real event/provider endpoint.
   run(process.execPath, ["--input-type=module", "-e", `

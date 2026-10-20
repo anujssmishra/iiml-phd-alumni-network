@@ -67,7 +67,7 @@ Keep P3 automation deferred. Before enabling it, require a durable cross-process
 | Operator/alternate, rollback and support owners | Unassigned |
 | Membership reviewer, event curator, pilot coordinator | Unassigned |
 | Backup destination, retention and timed recovery evidence | Unverified |
-| Actual retained-database migration lineage | Not inspected |
+| Actual retained-database migration lineage | Not applicable: owner confirmed no retained database on 20 October 2026; no existing data inspected |
 | Real Google OAuth callbacks and deployed browser evidence | Unverified |
 | Privacy/retention policy, cohort and launch authorization | Required |
 

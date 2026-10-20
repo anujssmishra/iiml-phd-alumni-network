@@ -173,3 +173,7 @@ On branch `codex/p2c-release-verification`, both advisory chains were remediated
 
 The candidate commit intentionally excludes all numbered duplicate files and preserves the stash. Its exact SHA, clean-clone installation, final browser results and published ref will be provided in the release handoff. No deployment or invitation is part of this candidate preparation.
 
+### Owner confirmation after candidate preparation
+
+On 20 October 2026 the owner explicitly answered **“none”** for retained databases. All existing databases are disposable; actual retained-lineage acceptance is therefore **not applicable**, not an unperformed repair or a guessed inventory. No existing database was inspected or changed. The earlier clean-clone run was interrupted before completion and is not claimed as a full-check success; final exact-revision validation must be rerun to completion. The owner will restore GitHub CLI access if needed for matching Linux CI inspection.
+

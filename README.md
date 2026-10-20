@@ -14,7 +14,7 @@ Updated 19 October 2026 · Baseline merged `736aecb` plus local P2C recovery/lin
 | Development safety | No runtime fixture login; retired legacy tokens; guarded additive disposable fixtures | Inventory prior shared-environment fixture use |
 | Recovery/automation | Offline guarded restore, WAL-consistent rollback snapshots, lineage inventory and pinned legacy candidate-copy repair; real ingestion disabled throughout P2 | Authorized retained-state acceptance and candidate release proof; P3 automation controls |
 
-P2A and P2B are merged. **P2C is in progress:** recovery, lineage inventory, bounded legacy candidate-copy repair and layered offline verification are implemented. The 20 October dependency remediation reports zero full/omit-dev findings using tested scoped replacements, with Next/Prisma versions unchanged. Exact-candidate verification, matching Linux CI and authorized retained-state acceptance remain distinct gates before staging and a small pilot. No retained database has been repaired or replaced.
+P2A and P2B are merged. **P2C is in progress:** recovery, lineage inventory, bounded legacy candidate-copy repair and offline verification are implemented. The 20 October remediation reports zero full/omit-dev findings with Next/Prisma versions unchanged. Exact-candidate verification and matching Linux CI remain gates before staging. The owner confirmed no retained database exists, so retained-data acceptance is not applicable; no existing database was inspected or changed.
 
 ## Start here
 
