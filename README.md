@@ -2,19 +2,19 @@
 
 An independent, community-led network for IIM PhD/FPM scholars and alumni: reviewed membership, consent-based academic discovery and conference coordination. Institutional endorsement is not established.
 
-Updated 19 October 2026 · Baseline merged `736aecb` plus local P2C recovery/lineage work.
+Updated 20 October 2026 · P2C implementation accepted at `45da2c9`; published for review, not deployed.
 
 ## Current status
 
 | Area | Implemented locally | Remaining gate |
 | --- | --- | --- |
-| Membership/directory | Google identity policy, reviewed membership, private profiles, consent-based introductions, deletion | Real OAuth/staging and release verification |
+| Membership/directory | Google identity policy, reviewed membership, private profiles, consent-based introductions, deletion | Real OAuth/staging acceptance |
 | Conference curation | Source-review publication gate, correction history, restore as draft, paginated queues and timezone-aware suggestions | Actual edition fact-checking for the pilot set |
 | Attendance/calendar | Private My RSVPs cancellation after archive, participation privacy, date-only conference days, timed CFP deadlines and non-cached ICS | Deployed browser/provider acceptance |
 | Development safety | No runtime fixture login; retired legacy tokens; guarded additive disposable fixtures | Inventory prior shared-environment fixture use |
-| Recovery/automation | Offline guarded restore, WAL-consistent rollback snapshots, lineage inventory and pinned legacy candidate-copy repair; real ingestion disabled throughout P2 | Authorized retained-state acceptance and candidate release proof; P3 automation controls |
+| Recovery/automation | Offline guarded restore, WAL-consistent rollback snapshots, lineage inventory and pinned legacy candidate-copy repair; real ingestion disabled throughout P2 | Hosted timed restore/rollback; P3 automation controls |
 
-P2A and P2B are merged. **P2C is in progress:** recovery, lineage inventory, bounded legacy candidate-copy repair and offline verification are implemented. The 20 October remediation reports zero full/omit-dev findings with Next/Prisma versions unchanged. Exact-candidate verification and matching Linux CI remain gates before staging. The owner confirmed no retained database exists, so retained-data acceptance is not applicable; no existing database was inspected or changed.
+P2A and P2B are merged. **P2C implementation acceptance passed:** recovery, lineage inventory, bounded legacy candidate-copy repair and offline verification are implemented. Local and matching Linux checks passed 120 tests/build, 21 development and seven focused production browser cases. Both audits report zero findings with Next/Prisma versions unchanged. See [exact-revision evidence and PR](docs/RELEASE_ACCEPTANCE.md). The owner confirmed no retained database exists; no existing database was inspected or changed. **Next: P2D staging choices and operating sign-off**, requiring provider access, named owners and separate deployment authority.
 
 ## Start here
 

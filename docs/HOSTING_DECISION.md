@@ -1,6 +1,6 @@
 # Hosting decision and operational release gates
 
-Updated 19 October 2026 · Source baseline merged `736aecb` plus local P2C recovery/lineage work. Architecture retained; local validation is recorded in the evidence ledger. Follow [PLAN.md](../PLAN.md) for P2 and [IMPLEMENTATION_CHECKS.md](IMPLEMENTATION_CHECKS.md) for results and remaining deployment gates.
+Updated 20 October 2026 · P2C implementation accepted at `45da2c9`. Architecture retained; local and Linux validation is recorded in [release acceptance](RELEASE_ACCEPTANCE.md). Follow [PLAN.md](../PLAN.md) for P2 and [IMPLEMENTATION_CHECKS.md](IMPLEMENTATION_CHECKS.md) for results and remaining deployment gates.
 
 ## Decision and reason
 
@@ -12,11 +12,11 @@ The host must provide persistent writable storage, durable protected backups, HT
 
 - **P2A implemented locally:** runtime shortcut removed; known prior predictable tokens rejected at session reads; both seeds require an owned temporary target and preserve existing records. Record actual prior use in retained environments before deployment; no accounts/sessions were removed.
 - **P2B implemented locally:** reviewed publication, transactional history/draft restore, date/calendar consistency, participation consent, paginated queues and own archived-RSVP cancellation. URL fetching and sync/cron/scheduler execution refuse during P2; catalogue import creates unreviewed drafts only.
-- **P2C:** recovery, pinned legacy candidate-copy repair, layered offline verification and scoped dependency remediation are implemented; authorize actual retained-lineage acceptance and record clean-install exact-release-SHA local/matching Linux CI results. See [offline boundaries](OFFLINE_VERIFICATION.md) and [dependency remediation](DEPENDENCY_REVIEW.md).
+- **P2C accepted:** recovery, pinned legacy candidate-copy repair, layered offline verification and scoped dependency remediation passed exact-revision local/matching Linux checks. Both audits have zero findings; no retained database exists per owner confirmation. See [acceptance evidence](RELEASE_ACCEPTANCE.md), [offline boundaries](OFFLINE_VERIFICATION.md) and [dependency remediation](DEPENDENCY_REVIEW.md).
 - **P2D:** demonstrate real OAuth/HTTPS/session behavior, name operators, approve policies and rehearse restore/rollback on isolated staging.
 - **P2E:** curate the small verified event set and recruit a consenting cohort only with separate authority.
 
-Earlier fixes include curator authorization, fail-closed POST cron, table-rebuild migration, lifecycle UI and recovery tooling. P2B now disables real fetching/scheduled execution at runtime rather than leaving an environment opt-in. These changes do not close migration-lineage, recovery, provider or deployment gates.
+Earlier fixes include curator authorization, fail-closed POST cron, table-rebuild migration, lifecycle UI and recovery tooling. P2B disables real fetching/scheduled execution at runtime. Disposable upgrade/recovery acceptance does not close hosted recovery, provider or deployment gates.
 
 ## Environment separation
 
@@ -73,8 +73,8 @@ Keep P3 automation deferred. Before enabling it, require a durable cross-process
 
 These are release gates, not reasons to rebuild already working product flows. P2D collects evidence; P2E follows explicit authorization. This document creates no services, credentials, real accounts or invitations.
 
-## Dependency remediation — exact-candidate verification still required
+## Dependency remediation — implementation verified, hosting separate
 
 The historical 19 October audit reported eight high-severity full-graph entries and three omit-dev entries across two advisories. The 20 October scoped remediation removes both chains; current full and omit-dev reports contain zero findings. Next 16.4.0 and Prisma/client 6.19.3 remain pinned. See [the compatibility contract and evidence](DEPENDENCY_REVIEW.md).
 
-The scoped ESLint alias uses tinyglobby plus a caller-hash-checked adapter to preserve literal/absolute root behavior; the scoped Prisma configuration dependency uses patched deepmerge-ts 8.0.2 with actual loader/merge regressions. No dependency source files, framework/ORM majors or risk waivers were changed. Current clean audits do not establish deployed safety: exact-candidate install/artifact assessment and matching Linux CI remain required, alongside actual operator/retained-data acceptance.
+The scoped ESLint alias uses tinyglobby plus a caller-hash-checked adapter to preserve literal/absolute root behavior; the scoped Prisma configuration dependency uses patched deepmerge-ts 8.0.2 with actual loader/merge regressions. No dependency source files, framework/ORM majors or risk waivers were changed. Exact-candidate install, limited artifact assessment and matching Linux CI passed; clean audits do not establish deployed safety or replace operator/provider acceptance. Repeat verification for subsequent application changes.

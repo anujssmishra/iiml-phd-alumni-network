@@ -1,8 +1,8 @@
 # IIM PhD & FPM Alumni Network — Project Overview
 
-Version 1.7 · Updated 20 October 2026 · Baseline merged `736aecb` plus P2C release-candidate work.
+Version 1.8 · Updated 20 October 2026 · P2C implementation accepted at `45da2c9`, published for review.
 
-P2A development safety and P2B manual curation are merged. P2C adds recovery, fail-closed lineage inventory, bounded legacy candidate-copy repair and [offline verification](docs/OFFLINE_VERIFICATION.md). [Dependency remediation](docs/DEPENDENCY_REVIEW.md) reports zero full/omit-dev findings using scoped compatibility-tested replacements, retaining Next/Prisma versions. Authorized actual-lineage acceptance and exact-candidate/matching Linux CI remain distinct gates. Evidence is separate from real OAuth, retained-data histories, external facts and deployment in [IMPLEMENTATION_CHECKS.md](docs/IMPLEMENTATION_CHECKS.md). The execution contract is [PLAN.md](PLAN.md).
+P2A development safety and P2B manual curation are merged. P2C adds recovery, fail-closed lineage inventory, bounded legacy candidate-copy repair and [offline verification](docs/OFFLINE_VERIFICATION.md). [Dependency remediation](docs/DEPENDENCY_REVIEW.md) reports zero full/omit-dev findings using scoped compatibility-tested replacements, retaining Next/Prisma versions. [Exact-revision local and Linux acceptance](docs/RELEASE_ACCEPTANCE.md) passed; retained-history acceptance is not applicable because the owner confirmed no retained database exists. Evidence is separate from real OAuth, external facts and deployment in [IMPLEMENTATION_CHECKS.md](docs/IMPLEMENTATION_CHECKS.md). The execution contract is [PLAN.md](PLAN.md).
 
 The café reference's eight-part structure, small-pilot approach and human editorial operation remain represented by the [planning skill](skills/community-platform-planning/SKILL.md).
 
@@ -101,7 +101,7 @@ P2B enforces manual review at publication and disables real ingestion at server/
 
 Participation roles/titles appear only for approved, visible profiles to approved members. The form explains that sharing boundary. Own-RSVP management masks unpublished event facts and never exposes another member's attendance. Calendar exports include no profiles, attendance or contacts; success/error responses use private/no-store, so publication withdrawal requires a fresh authorization check.
 
-No comprehensive security/accessibility certification, live OAuth, current dependency clearance or real TLS deployment acceptance is claimed.
+Current full/omit-dev advisory reports contain zero findings; this is not comprehensive security/accessibility certification, live OAuth or real TLS deployment acceptance.
 
 ## 7. Setup, operations and recovery
 
@@ -109,10 +109,10 @@ No comprehensive security/accessibility certification, live OAuth, current depen
 
 P2C adds quote-safe private snapshots, managed-client leases, mandatory open-handle checks, offline exclusion, WAL-consistent safety, atomic replacement and handled rollback. Interrupted/failed rollback retains the marker/evidence. See [the recovery procedure and supported-host boundary](docs/DATABASE_RECOVERY.md). Lineage inventory is read-only; deployment refuses unsupported history. Explicit legacy repair modifies only a verified candidate copy and reconciles pinned metadata after actual normalization/preservation checks. Actual installation, protected off-volume copies and proposed 24-hour data-loss/four-hour restore targets await authorized staging/operator acceptance.
 
-Current local checks are in the evidence ledger. Historical 38/10 and 62/14 counts remain historical. Exact-release-SHA clean install/CI, real OAuth, retained-data upgrade/restore and operator sign-off remain gates.
+Current local and matching Linux checks are in the evidence ledger and release acceptance record. Historical 38/10 and 62/14 counts remain historical. Real OAuth, protected off-volume/timed restore and operator sign-off remain staging gates; no retained database exists for this candidate.
 
 ## 8. Roadmap and decisions
 
-P2A and P2B are merged; P2C recovery/lineage/legacy-copy repair, offline verification and dependency remediation are implemented. Complete clean-install exact-candidate/matching Linux CI and authorized retained-lineage acceptance, then P2D staging/provider/operations acceptance and P2E an authorized small pilot. P3 ingestion and P4 collaboration remain deferred.
+P2A and P2B are merged; P2C recovery/lineage/legacy-copy repair, offline verification and dependency remediation have passed implementation acceptance. Next are P2D staging/provider/operations acceptance and P2E a separately authorized small pilot. P3 ingestion and P4 collaboration remain deferred.
 
 The owner confirmed no retained database exists on 20 October 2026; actual retained-lineage acceptance is not applicable for this candidate. Open staging choices: hosting/region/budget/domain, named operators/reviewers, branding permission, privacy/retention policy and cohort/launch authorization. No existing database inspection/change, deployment, invitations, real-data import or user-file cleanup occurred.

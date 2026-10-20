@@ -1,6 +1,6 @@
 # Deterministic offline verification
 
-Updated 19 October 2026. These controls apply to verification children, not the normal application or the machine's firewall. See [the evidence ledger](IMPLEMENTATION_CHECKS.md) for actual runs and [dependency decisions](DEPENDENCY_REVIEW.md) for the separate online audit.
+Updated 20 October 2026. These controls apply to verification children, not the normal application or the machine's firewall. See [the evidence ledger](IMPLEMENTATION_CHECKS.md) for actual runs and [dependency decisions](DEPENDENCY_REVIEW.md) for the separate online audit.
 
 ## Run the strict boundary
 
@@ -41,4 +41,4 @@ Ordinary `npm test`, `npm run build` and `npm run test:e2e` use the same databas
 
 The owned `0700` temporary proof directory contains `0600` marker and attempt files. Attempts contain only API category and PID—never destinations, credentials, headers, query strings or bodies. A caught denial still fails the wrapper. Successful runs remove their own proof; failures retain it and print its path for operator inspection. Disposable test databases are removed independently. Proof retention is temporary OS storage, not a durable audit archive; record the candidate revision, command, runtime, status and counts in the release record.
 
-The repository workflow requests pinned npm, full/omit-dev advisory gates, strict Linux checks and development/focused-production browsers. Registry/download steps precede the offline boundary. The 20 October dependency remediation has zero current findings; still require clean-install exact-candidate evidence, a matching successful Linux CI run and actual retained-lineage acceptance. These controls do not authorize deployment, retained-data changes or pilot invitations.
+The repository workflow runs pinned npm, full/omit-dev advisory gates, strict Linux checks and development/focused-production browsers. Registry/download steps precede the offline boundary. [Exact-candidate local/Linux acceptance passed](RELEASE_ACCEPTANCE.md) at `45da2c9`, with zero findings and zero forbidden workload attempts. The owner confirmed no retained database exists. Repeat exact-SHA verification for subsequent application changes; these controls do not authorize deployment, retained-data changes or pilot invitations.

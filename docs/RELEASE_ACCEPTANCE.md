@@ -1,13 +1,21 @@
 # P2C release-candidate acceptance
 
-Updated 20 October 2026. This checklist does not authorize deployment or changes to retained data. The candidate branch is `codex/p2c-release-verification`; its exact SHA and post-commit clean-clone results are reported in the release handoff.
+Updated 20 October 2026. **P2C implementation acceptance passed** at `45da2c9957bf617cd79dfbc1f78c4628697d716e`. This checklist does not authorize merging, deployment or changes to retained data. The candidate branch is `codex/p2c-release-verification`, published in [PR #2](https://github.com/anujssmishra/iiml-phd-alumni-network/pull/2). Documentation-only follow-ups are identified separately in the release handoff; always inspect CI for the final published SHA.
 
 | Gate | Evidence/status |
 | --- | --- |
 | Dependency remediation | Zero full/omit-dev findings; [captured audit and scoped compatibility contract](DEPENDENCY_REVIEW.md) |
-| Local strict verification | 120 service/integration cases, generation, lint/typecheck and production build passed on the working tree; post-commit clean install/browser runs are separately required |
-| Matching Linux CI | CLI access restored. First run at `3246773` failed on Ubuntu UID mapping, before tests. The explicit isolated-network/bootstrap-with-privilege-drop path now needs a passing matching run; configuration alone is not acceptance |
+| Local strict verification | Clean disposable checkout at `45da2c9`: 120 tests, generation, lint/typecheck, production build, 21 development and seven focused production browser cases passed; zero forbidden workload attempts. Node 24.19.0 / npm 10.7.0. Locked dependencies were freshly installed at `7b41aea`, then only the CI bootstrap/launcher changed; the lock stayed byte-identical |
+| Matching Linux CI | [Successful exact-SHA run](https://github.com/anujssmishra/iiml-phd-alumni-network/actions/runs/39376461743) at `45da2c9`: clean install, both audits, Prisma validation, 120 tests/build, 21 development and seven focused production browser cases; all three isolated workloads left zero forbidden attempts. Node 24.21.0; workflow pins npm 10.7.0 |
 | Retained database | **Not applicable:** the owner confirmed “none” on 20 October 2026; existing databases are disposable. No retained-data inspection, repair, replacement or migration is needed or performed |
+
+## Verification notes and limits
+
+- The first Linux attempt at `3246773` failed before tests because Ubuntu denied rootless UID mapping. The explicit CI bootstrap creates only a fresh network namespace as root, restores the original runner UID/GID and runner-owned home, drops every capability set and enables no-new-privileges. Each workload verifies those conditions and kernel denial before running. The intermediate `7b41aea` check passed but browsers failed because sudo's root home was retained; `45da2c9` corrects that handoff. Neither failed run counts as acceptance, and no host firewall/sysctl/security policy was weakened.
+- Both full and omit-dev audits were repeated at `45da2c9` with zero findings. The lock digest remains `eacb1267b437ce34e9e92b2371546278cb3382d97713b9834131b5701f1cfd27`.
+- A read-only inventory of that clean-checkout production artifact scanned 141 package manifests and 41 production traces, finding none of the eight named audit-chain package manifests/paths and no skipped symlinks. This limited inventory is not bundled-code reachability or deployment proof.
+- Two inherited unused-variable lint warnings, development closed-stream/screenshot-caret hydration diagnostics and the next-start/standalone warning remain documented; the assertions and strict egress gates passed. The browser production subset uses fixture sessions and loopback HTTP, not real Google OAuth, HTTPS or standalone hosting.
+- All 32 unrelated numbered copies and the existing stash remain outside the candidate. No existing database, hosted service or real member data was changed.
 
 ## Authorized operator procedure
 

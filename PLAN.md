@@ -1,14 +1,14 @@
 # Delivery plan: P2 secure release candidate and closed pilot
 
-Updated 19 October 2026 · Source baseline: merged `736aecb` plus local P2C recovery/lineage work. No deployment.
+Updated 20 October 2026 · P2C implementation accepted at `45da2c9`; see the exact-revision evidence below. No deployment.
 
 ## Outcome and evidence
 
-The next phase is **P2: make the implemented network safe to operate, then run a small authorized pilot**. Retain Next.js/Prisma/SQLite on one persistent Node server. Follow the café-inspired approach: a bounded community, manually reviewed facts, explicit consent, and recovery evidence before automation.
+The next phase is **P2D: isolated staging and operating sign-off**, followed by a separately authorized small pilot. Retain Next.js/Prisma/SQLite on one persistent Node server. Follow the café-inspired approach: a bounded community, manually reviewed facts, explicit consent, and recovery evidence before automation.
 
 P0–P1B have earlier local verification. P1C now includes curator editing, archive/restore, suggestion review, publication-aware RSVP/rosters, participation roles/paper titles, and calendar export. Recent commits also add H1–H3 hardening and H5 recovery tooling. These are implemented capabilities to verify, not features to rebuild.
 
-The previous H1–H6 roadmap is superseded by the work below. P2A–P2B close the local development-safety and manual-workflow gates, with real ingestion disabled. H5 recovery/readiness still needs P2C–P2E acceptance; H6 becomes deferred P3 automation. Historical 62/14 counts are kept separately from current local execution in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
+The previous H1–H6 roadmap is superseded by the work below. P2A–P2C close the implementation/release-verification gates, with real ingestion disabled. H5 hosted recovery/readiness still needs P2D–P2E acceptance; H6 becomes deferred P3 automation. Historical counts are kept separately from current execution in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
 
 ## Sequence and owners
 
@@ -18,7 +18,7 @@ Owner labels are roles to assign, not people already committed. Stages are accep
 | --- | --- | --- | --- |
 | P2A | Runtime shortcut removed; guarded additive fixtures and legacy-token retirement implemented | Local validation in the evidence ledger | Implementer + security reviewer |
 | P2B | Reviewed publication/history, date/calendar correctness and private archived-RSVP cancellation implemented | Local validation in the evidence ledger | Implementer + event curator |
-| P2C | Upgrade, recovery and exact-revision verification are reproducible | P2A–B before final release run; fixture work can start earlier | Implementer + operator |
+| P2C | Accepted implementation: upgrade/recovery fixtures and exact-revision local/Linux verification pass | [Acceptance record](docs/RELEASE_ACCEPTANCE.md); no retained database exists | Implementer + operator |
 | P2D | Isolated staging is demonstrably operable | P2C + authorized hosting/provider access | Operator + membership reviewer + curator |
 | P2E | Small consenting cohort validates usefulness | P2D + explicit launch/invitation authority | Pilot coordinator + support owner |
 
@@ -60,7 +60,7 @@ The new forward migration records previous publication state and returns non-dem
 
 ## P2C — Prove upgrades, recovery and release checks
 
-**Release acceptance remains gated.** Offline recovery, fail-closed lineage inventory and pinned legacy candidate-copy repair are implemented and covered by disposable fixtures. [Layered offline verification](docs/OFFLINE_VERIFICATION.md) adds child-only OS and Node/browser controls. [The 20 October remediation](docs/DEPENDENCY_REVIEW.md) removes both affected dependency chains with tested scoped overrides and zero full/omit-dev findings; no waiver or framework/ORM major change was applied. Authorized retained-history acceptance and exact-candidate/matching Linux CI remain distinct gates. See [the recovery runbook](docs/DATABASE_RECOVERY.md).
+**Implementation acceptance passed at `45da2c9`.** Offline recovery, fail-closed lineage inventory and pinned legacy candidate-copy repair are covered by disposable fixtures. [Layered offline verification](docs/OFFLINE_VERIFICATION.md) adds child-only OS and Node/browser controls. [The 20 October remediation](docs/DEPENDENCY_REVIEW.md) removes both affected dependency chains with tested scoped overrides and zero full/omit-dev findings; no waiver or framework/ORM major change was applied. Local and matching Linux runs passed 120 tests/build, 21 development and seven focused production browser cases. The owner confirmed no retained database exists, making that gate not applicable. [Exact-revision acceptance](docs/RELEASE_ACCEPTANCE.md) remains separate from hosted/provider sign-off. See [the recovery runbook](docs/DATABASE_RECOVERY.md).
 
 1. Inventory migration lineage without changing retained data. The conference migration was rewritten in place since `2ebd685`; distinguish fresh databases, populated foundation-only databases, already-applied older SQL and failed migrations. Specify a supported forward repair/checksum reconciliation for each actual lineage. Never reset retained data or blindly mark a migration applied.
 2. Rehearse these upgrades on disposable populated fixtures, preserving IDs, legacy dates, member relations, attendance and roles/paper titles. Verify the intentional P2B downgrade of unreviewed non-demo publications to draft and its before/after audit; preserve all other publication states. Check foreign keys and rollback/restore.
@@ -106,6 +106,6 @@ P4 follows demonstrated demand: co-authorship posts, mentorship and opt-in match
 
 ## Next smallest implementation slice
 
-Finish **P2C acceptance** with clean-checkout exact-candidate verification and successful matching Linux CI. [Dependency remediation](docs/DEPENDENCY_REVIEW.md) has scoped compatibility regressions and zero current full/omit-dev findings; keep the pinned adapter/override contract under review. The owner confirmed no retained database exists on 20 October 2026, so retained-lineage acceptance is **not applicable** for this candidate; no existing database should be inspected or modified. Use [the strict offline commands](docs/OFFLINE_VERIFICATION.md). Results and access requirements are in [the evidence ledger](docs/IMPLEMENTATION_CHECKS.md).
+Start **P2D.1: agree the staging target and owners**. Obtain the provider/account/region, budget, domain/branding permission, persistent storage and protected backup destination, plus named operator/rollback, membership-review and curator owners. Record explicit provisioning/deployment authority before creating services or changing DNS/OAuth. Then establish isolated synthetic staging and execute P2D's real OAuth/HTTPS and timed restore/rollback checks. No provider, paid account, real-member import or invitation is implied by P2C completion. Preserve [the accepted dependency contract](docs/DEPENDENCY_REVIEW.md), exact-SHA CI and retained-data **not-applicable** decision in [the release record](docs/RELEASE_ACCEPTANCE.md).
 
 The original planning pass changed documentation only. P2A–P2B execution modifies application/fixture/curation/test code and uses disposable verification databases. Real OAuth, event fact-checking, retained-data operations, deployment and recruitment remain outstanding.
